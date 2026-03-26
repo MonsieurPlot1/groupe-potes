@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Groupe de Potes</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="auth-container" id="auth-box">
+    <h1>👥 Groupe de Potes</h1>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('login')">Connexion</button>
+      <button class="tab" onclick="showTab('register')">Inscription</button>
+    </div>
+
+    <!-- Login -->
+    <div id="login-form">
+      <input type="email" id="login-email" placeholder="Email" />
+      <input type="password" id="login-password" placeholder="Mot de passe" />
+      <button onclick="login()">Se connecter</button>
+    </div>
+
+    <!-- Register -->
+    <div id="register-form" style="display:none">
+      <input type="text" id="register-username" placeholder="Pseudo" />
+      <input type="email" id="register-email" placeholder="Email" />
+      <input type="password" id="register-password" placeholder="Mot de passe" />
+      <button onclick="register()">Créer mon compte</button>
+    </div>
+
+    <p id="auth-message"></p>
+  </div>
+
+  <script type="module" src="js/supabase.js"></script>
+  <script type="module" src="js/auth.js"></script>
+</body>
+</html>

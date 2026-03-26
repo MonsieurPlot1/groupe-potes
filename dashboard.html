@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard - Groupe de Potes</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body class="dashboard-body">
+    <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>👥 Groupe de Potes</h2>
+    <nav>
+      <button class="nav-btn active" onclick="showSection('accueil')">🏠 Accueil</button>
+      <button class="nav-btn" onclick="showSection('photos')">📸 Photos</button>
+      <button class="nav-btn" onclick="showSection('calendrier')">📅 Calendrier</button>
+      <button class="nav-btn" onclick="showSection('classement')">🏆 Classement</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div id="user-info"></div>
+      <button class="logout-btn" onclick="logout()">🚪 Déconnexion</button>
+    </div>
+  </div>
+
+  <!-- Contenu principal -->
+  <div class="main">
+
+    <!-- Accueil -->
+    <div id="section-accueil" class="section active">
+      <h1>Bienvenue 👋</h1>
+      <div class="online-box">
+        <h3>🟢 En ligne</h3>
+        <div id="online-users"></div>
+      </div>
+    </div>
+
+    <!-- Photos -->
+    <div id="section-photos" class="section">
+      <h1>📸 Galerie</h1>
+
+      <!-- Vue principale : les 9 cartes -->
+      <div id="potes-grid" class="potes-grid">
+        <div class="pote-card" onclick="openPote('renan')">
+          <div class="pote-avatar">R</div>
+          <span>Renan</span>
+        </div>
+        <div class="pote-card" onclick="openPote('noe')">
+          <div class="pote-avatar">N</div>
+          <span>Noé</span>
+        </div>
+        <div class="pote-card" onclick="openPote('cesar')">
+          <div class="pote-avatar">C</div>
+          <span>César</span>
+        </div>
+        <div class="pote-card" onclick="openPote('erwan')">
+          <div class="pote-avatar">E</div>
+          <span>Erwan</span>
+        </div>
+        <div class="pote-card" onclick="openPote('wili')">
+          <div class="pote-avatar">W</div>
+          <span>Wili</span>
+        </div>
+        <div class="pote-card" onclick="openPote('raphael')">
+          <div class="pote-avatar">R</div>
+          <span>Raphael</span>
+        </div>
+        <div class="pote-card" onclick="openPote('lilou')">
+          <div class="pote-avatar">L</div>
+          <span>Lilou</span>
+        </div>
+        <div class="pote-card" onclick="openPote('gwendal')">
+          <div class="pote-avatar">G</div>
+          <span>Gwendal</span>
+        </div>
+        <div class="pote-card" onclick="openPote('nicolas')">
+          <div class="pote-avatar">N</div>
+          <span>Nicolas</span>
+        </div>
+      </div>
+
+      <!-- Vue d'un pote : ses photos -->
+      <div id="pote-view" style="display:none">
+        <button class="back-btn" onclick="closePote()">← Retour</button>
+        <h2 id="pote-title"></h2>
+        <div class="upload-box">
+          <input type="file" id="photo-input" accept="image/*" multiple />
+          <button onclick="uploadPhotos()">⬆️ Envoyer des photos</button>
+          <p id="upload-message"></p>
+        </div>
+        <div id="photo-grid" class="photo-grid"></div>
+      </div>
+    </div>
+
+    <!-- Calendrier -->
+    <div id="section-calendrier" class="section">
+      <h1>📅 Calendrier</h1>
+      <p>Bientôt disponible...</p>
+    </div>
+
+    <!-- Classement -->
+    <div id="section-classement" class="section">
+      <h1>🏆 Classement</h1>
+      <p>Bientôt disponible...</p>
+    </div>
+
+  </div>
+
+  <script type="module" src="js/supabase.js"></script>
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>
