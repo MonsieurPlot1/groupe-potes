@@ -138,16 +138,25 @@ let chatUsername = null
 function initChat() {
   chatUsername = currentUser.user_metadata?.username || currentUser.email
 
-  // Charger les anciens messages
   loadMessages()
 
-  // Ecouter les nouveaux messages en temps réel
-  supabase
-    .channel('chat')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+  const channel = supabase
+    .channel('chat-room', {
+      config: { broadcast: { self: true } }
+    })
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages'
+    }, payload => {
       appendMessage(payload.new)
     })
-    .subscribe()
+    .subscribe((status) => {
+      console.log('Chat status:', status)
+      if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        setTimeout(() => channel.subscribe(), 2000)
+      }
+    })
 }
 
 async function loadMessages() {
