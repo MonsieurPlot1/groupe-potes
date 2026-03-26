@@ -18,6 +18,7 @@
       <button class="nav-btn" onclick="showSection('photos')">📸 Photos</button>
       <button class="nav-btn" onclick="showSection('calendrier')">📅 Calendrier</button>
       <button class="nav-btn" onclick="showSection('classement')">🏆 Classement</button>
+      <button class="nav-btn" onclick="showSection('chat')">💬 Chat</button>
     </nav>
     <div class="sidebar-bottom">
       <div id="user-info"></div>
@@ -104,6 +105,18 @@
     <div id="section-classement" class="section">
       <h1>🏆 Classement</h1>
       <p>Bientôt disponible...</p>
+    </div>
+
+    <!-- Chat -->
+    <div id="section-chat" class="section">
+      <h1>💬 Chat</h1>
+      <div class="chat-box">
+        <div id="chat-messages"></div>
+        <div class="chat-input-box">
+          <input type="text" id="chat-input" placeholder="Ton message..." onkeydown="if(event.key==='Enter') sendMessage()" />
+          <button onclick="sendMessage()">Envoyer</button>
+        </div>
+      </div>
     </div>
 
   </div>

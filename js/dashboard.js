@@ -131,3 +131,66 @@ if (localStorage.getItem('theme') === 'light') {
   document.body.classList.add('light')
   document.getElementById('theme-btn').textContent = '🌙'
 }
+
+// Chat
+let chatUsername = null
+
+function initChat() {
+  chatUsername = currentUser.user_metadata?.username || currentUser.email
+
+  // Charger les anciens messages
+  loadMessages()
+
+  // Ecouter les nouveaux messages en temps réel
+  supabase
+    .channel('chat')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+      appendMessage(payload.new)
+    })
+    .subscribe()
+}
+
+async function loadMessages() {
+  const { data } = await supabase
+    .from('messages')
+    .select('*')
+    .order('created_at', { ascending: true })
+    .limit(100)
+
+  const container = document.getElementById('chat-messages')
+  container.innerHTML = ''
+  data.forEach(msg => appendMessage(msg))
+}
+
+function appendMessage(msg) {
+  const container = document.getElementById('chat-messages')
+  const isMine = msg.username === chatUsername
+
+  const div = document.createElement('div')
+  div.className = 'chat-message ' + (isMine ? 'mine' : 'other')
+
+  const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+
+  div.innerHTML = `
+    <div class="chat-bubble">${msg.content}</div>
+    <div class="chat-meta">${isMine ? '' : msg.username + ' · '}${time}</div>
+  `
+  container.appendChild(div)
+  container.scrollTop = container.scrollHeight
+}
+
+window.sendMessage = async function() {
+  const input = document.getElementById('chat-input')
+  const content = input.value.trim()
+  if (!content) return
+
+  input.value = ''
+  await supabase.from('messages').insert({ username: chatUsername, content })
+}
+
+// Init chat quand on clique sur l'onglet
+const _showSection = window.showSection
+window.showSection = function(name) {
+  _showSection.call(this, name)
+  if (name === 'chat' && !chatUsername) initChat()
+}
