@@ -182,9 +182,17 @@ function appendMessage(msg) {
   const isMine = msg.username === chatUsername
   const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
+  // Détecte si même personne que le message précédent
+  const lastMsg = container.lastElementChild
+  const lastUsername = lastMsg?.dataset.username
+  const lastTime = lastMsg?.dataset.time
+  const isGrouped = lastUsername === msg.username && lastTime === time
+
   const div = document.createElement('div')
-  div.className = 'chat-message ' + (isMine ? 'mine' : 'other')
+  div.className = 'chat-message ' + (isMine ? 'mine' : 'other') + (isGrouped ? ' grouped' : '')
   div.id = 'msg-' + msg.id
+  div.dataset.username = msg.username
+  div.dataset.time = time
 
   let replyHtml = ''
   if (msg.reply_preview) {
