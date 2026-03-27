@@ -620,6 +620,182 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 })
 
+/* =====================================================
+   CLASSEMENT
+   ===================================================== */
+
+const POTES = ['renan','noe','cesar','erwan','wili','raphael','lilou','gwendal','nicolas']
+let rankData = null
+let currentRankCat = 'score'
+let classementLoaded = false
+
+async function loadClassement() {
+  document.getElementById('rank-loading').style.display = 'block'
+  document.getElementById('rank-podium').style.display = 'none'
+  document.getElementById('rank-list').style.display = 'none'
+
+  // Fetch message counts
+  const { data: msgs } = await supabase.from('messages').select('username')
+  const msgCounts = {}
+  POTES.forEach(p => msgCounts[p] = 0)
+  if (msgs) msgs.forEach(m => {
+    const u = (m.username || '').toLowerCase()
+    if (msgCounts[u] !== undefined) msgCounts[u]++
+  })
+
+  // Fetch photo counts per pote folder
+  const photoCounts = {}
+  await Promise.all(POTES.map(async pote => {
+    const { data } = await supabase.storage.from('photos').list(pote, { limit: 500 })
+    photoCounts[pote] = data ? data.filter(f => f.name !== '.emptyFolderPlaceholder').length : 0
+  }))
+
+  rankData = POTES.map(pote => ({
+    username: pote,
+    messages: msgCounts[pote] || 0,
+    photos: photoCounts[pote] || 0,
+    score: (msgCounts[pote] || 0) + (photoCounts[pote] || 0) * 3
+  }))
+
+  classementLoaded = true
+  renderClassement(currentRankCat)
+}
+
+function renderClassement(cat) {
+  if (!rankData) return
+  currentRankCat = cat
+
+  // Update tab active state
+  document.querySelectorAll('.rank-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === cat)
+  })
+
+  const sorted = [...rankData].sort((a, b) => b[cat] - a[cat])
+  const max = sorted[0]?.[cat] || 1
+
+  // Podium (order: 2nd left, 1st center, 3rd right)
+  const podiumEl = document.getElementById('rank-podium')
+  const medals = ['🥇','🥈','🥉']
+  const podiumOrder = sorted.length >= 3
+    ? [sorted[1], sorted[0], sorted[2]]
+    : sorted.slice(0, 3)
+  const podiumRanks = sorted.length >= 3 ? [2, 1, 3] : [2, 1, 3]
+
+  podiumEl.innerHTML = ''
+  podiumOrder.forEach((user, i) => {
+    if (!user) return
+    const rank = podiumRanks[i]
+    const slot = document.createElement('div')
+    slot.className = 'podium-slot'
+    slot.dataset.rank = rank
+
+    const av = document.createElement('div')
+    av.className = 'podium-avatar'
+    av.appendChild(renderAvatarEl(user.username, 'podium-avatar-inner'))
+    // Fix: renderAvatarEl returns a div with class; we need to adapt it for podium
+    av.innerHTML = ''
+    const inner = renderAvatarEl(user.username, 'podium-av-img')
+    // Render initial letter or img directly inside podium-avatar
+    const avInner = document.createElement('div')
+    avInner.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:inherit;font-weight:700;'
+    const cachedUrl = avatarCache[user.username]
+    if (cachedUrl) {
+      const img = document.createElement('img')
+      img.src = cachedUrl
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;'
+      avInner.appendChild(img)
+    } else {
+      avInner.textContent = user.username.charAt(0).toUpperCase()
+      if (avatarCache[user.username] === undefined) {
+        avatarCache[user.username] = null
+        const { data } = supabase.storage.from('photos').getPublicUrl('avatars/' + user.username + '.jpg')
+        fetch(data.publicUrl, { method: 'HEAD' }).then(res => {
+          if (res.ok) {
+            avatarCache[user.username] = data.publicUrl
+            const img = document.createElement('img')
+            img.src = data.publicUrl
+            img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;'
+            avInner.innerHTML = ''
+            avInner.appendChild(img)
+          }
+        }).catch(() => {})
+      }
+    }
+    av.appendChild(avInner)
+
+    const label = cat === 'score' ? 'pts' : cat === 'messages' ? 'msgs' : 'photos'
+    slot.innerHTML = `
+      <div class="podium-name">${user.username.charAt(0).toUpperCase() + user.username.slice(1)}</div>
+      <div class="podium-value">${user[cat]} ${label}</div>
+      <div class="podium-base">${medals[rank - 1]}</div>
+    `
+    slot.insertBefore(av, slot.firstChild)
+    podiumEl.appendChild(slot)
+  })
+
+  // Ranked list
+  const listEl = document.getElementById('rank-list')
+  listEl.innerHTML = ''
+  sorted.forEach((user, idx) => {
+    const item = document.createElement('div')
+    item.className = 'rank-item'
+    item.style.animationDelay = (idx * 0.05) + 's'
+
+    const avEl = document.createElement('div')
+    avEl.className = 'rank-avatar'
+    const cachedUrl = avatarCache[user.username]
+    if (cachedUrl) {
+      const img = document.createElement('img')
+      img.src = cachedUrl
+      avEl.appendChild(img)
+    } else {
+      avEl.textContent = user.username.charAt(0).toUpperCase()
+      if (avatarCache[user.username] === undefined) {
+        avatarCache[user.username] = null
+        const { data } = supabase.storage.from('photos').getPublicUrl('avatars/' + user.username + '.jpg')
+        fetch(data.publicUrl, { method: 'HEAD' }).then(res => {
+          if (res.ok) {
+            avatarCache[user.username] = data.publicUrl
+            const img = document.createElement('img')
+            img.src = data.publicUrl
+            avEl.innerHTML = ''
+            avEl.appendChild(img)
+          }
+        }).catch(() => {})
+      }
+    }
+
+    const pct = max > 0 ? Math.round((user[cat] / max) * 100) : 0
+    const label = cat === 'score' ? 'pts' : cat === 'messages' ? 'msgs' : 'photos'
+    item.innerHTML = `
+      <span class="rank-position">#${idx + 1}</span>
+      <div class="rank-info">
+        <div class="rank-username">${user.username.charAt(0).toUpperCase() + user.username.slice(1)}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" data-pct="${pct}"></div></div>
+      </div>
+      <span class="rank-score">${user[cat]} ${label}</span>
+    `
+    item.insertBefore(avEl, item.children[1])
+    listEl.appendChild(item)
+  })
+
+  document.getElementById('rank-loading').style.display = 'none'
+  podiumEl.style.display = 'flex'
+  listEl.style.display = 'flex'
+
+  // Animate bars after paint
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    listEl.querySelectorAll('.rank-bar').forEach(bar => {
+      bar.style.width = bar.dataset.pct + '%'
+    })
+  }))
+}
+
+window.switchRankCat = function(cat) {
+  currentRankCat = cat
+  if (rankData) renderClassement(cat)
+}
+
 const _showSection = window.showSection
 window.showSection = function(name) {
   _showSection.call(this, name)
@@ -631,6 +807,7 @@ window.showSection = function(name) {
   } else {
     chatOpen = false
   }
+  if (name === 'classement' && !classementLoaded) loadClassement()
 }
 
 document.addEventListener('click', (e) => {

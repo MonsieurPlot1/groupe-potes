@@ -166,7 +166,14 @@
     <!-- Classement -->
     <div id="section-classement" class="section">
       <h1>🏆 Classement</h1>
-      <p>Bientôt disponible...</p>
+      <div class="rank-tabs">
+        <button class="rank-tab active" data-cat="score" onclick="window.switchRankCat('score')">🌟 Score</button>
+        <button class="rank-tab" data-cat="messages" onclick="window.switchRankCat('messages')">💬 Messages</button>
+        <button class="rank-tab" data-cat="photos" onclick="window.switchRankCat('photos')">📸 Photos</button>
+      </div>
+      <div id="rank-loading" class="rank-loading">Chargement des stats...</div>
+      <div id="rank-podium" class="rank-podium" style="display:none"></div>
+      <div id="rank-list" class="rank-list" style="display:none"></div>
     </div>
 
     <!-- Chat -->
