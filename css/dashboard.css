@@ -429,3 +429,87 @@ body, .sidebar, .main, .chat-box, .online-box, .pote-card, .upload-box, .back-bt
 }
 .edit-actions button:first-child { background: var(--accent); color: white; }
 .edit-actions button:hover { transform: none; box-shadow: none; }
+
+/* ===== NAVIGATION MOBILE ===== */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--surface-solid);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  z-index: 100;
+  padding: 0 4px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mobile-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: var(--text-muted);
+  padding: 8px 4px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  box-shadow: none;
+  width: auto;
+  transition: color 0.2s;
+}
+
+.mnb-icon { font-size: 1.3rem; line-height: 1; }
+.mnb-label { font-size: 0.62rem; font-weight: 500; white-space: nowrap; }
+
+.mobile-nav-btn.active { color: var(--accent); }
+.mobile-nav-btn:not(.nav-btn):not(.logout-btn):not(.back-btn):not(.theme-toggle):hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .mobile-nav { display: flex; }
+
+  .dashboard-body { flex-direction: column; }
+  .main { padding: 16px 16px 80px 16px; }
+
+  /* Accueil */
+  .home-grid { grid-template-columns: 1fr; }
+  .messages-card { grid-column: 1; }
+
+  /* Galerie potes */
+  .potes-grid {
+    height: auto;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: none;
+    min-height: calc(100vh - 160px);
+  }
+
+  /* Photo grid */
+  .photo-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .photo-grid img { height: 120px; }
+
+  /* Upload */
+  .upload-box { max-width: 100%; }
+
+  /* Chat */
+  .chat-box { height: calc(100dvh - 140px); }
+  .chat-message { max-width: 82%; }
+  .chat-input-box { padding: 10px 12px; gap: 8px; }
+  .chat-input-box button { padding: 12px 14px; }
+
+  /* Theme toggle */
+  .theme-toggle { top: 10px; right: 10px; width: 36px; height: 36px; }
+
+  /* Section h1 */
+  .section h1 { font-size: 1.3rem; margin-bottom: 20px; }
+}

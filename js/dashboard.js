@@ -84,9 +84,9 @@ async function loadHomeMessages() {
 
 window.showSection = function(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
+  document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(b => b.classList.remove('active'))
   document.getElementById('section-' + name).classList.add('active')
-  event.target.classList.add('active')
+  document.querySelectorAll(`[data-section="${name}"]`).forEach(b => b.classList.add('active'))
 }
 
 window.openPote = function(pote) {
@@ -168,13 +168,16 @@ let chatOpen = false
 let chatInitialized = false
 
 function updateBadge() {
-  const badge = document.getElementById('chat-badge')
-  if (!badge) return
-  if (unreadCount > 0) {
-    badge.style.display = 'inline-flex'
-    badge.textContent = unreadCount > 9 ? '9+' : unreadCount
-  } else {
-    badge.style.display = 'none'
+  const val = unreadCount > 9 ? '9+' : unreadCount
+  for (const id of ['chat-badge', 'chat-badge-mobile']) {
+    const badge = document.getElementById(id)
+    if (!badge) continue
+    if (unreadCount > 0) {
+      badge.style.display = 'inline-flex'
+      badge.textContent = val
+    } else {
+      badge.style.display = 'none'
+    }
   }
 }
 
