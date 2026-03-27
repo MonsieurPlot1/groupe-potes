@@ -243,7 +243,15 @@ window.showReactionPicker = function(id) {
   picker.id = 'picker-' + id
   picker.innerHTML = emojis.map(e => `<button onclick="window.toggleReaction('${id}', '${e}')">${e}</button>`).join('')
   document.getElementById('msg-' + id).appendChild(picker)
-  setTimeout(() => document.addEventListener('click', () => picker.remove(), { once: true }), 100)
+
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!picker.contains(e.target)) {
+        picker.remove()
+        document.removeEventListener('click', handler)
+      }
+    })
+  }, 200)
 }
 
 window.toggleReaction = async function(id, emoji) {
