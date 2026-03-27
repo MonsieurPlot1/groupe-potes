@@ -13,25 +13,73 @@ async function init() {
   currentUser = session.user
   const username = currentUser.user_metadata?.username || currentUser.email
   document.getElementById('user-info').textContent = '👤 ' + username
+  document.getElementById('welcome-title').textContent = 'Bienvenue ' + username + ' 👋'
 
+  // Stats
+  loadHomeStats()
+  loadHomeMessages()
+
+  // Presence
   const channel = supabase.channel('online-users')
   channel
     .on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState()
       const onlineDiv = document.getElementById('online-users')
       onlineDiv.innerHTML = ''
-      Object.values(state).forEach(presences => {
-        presences.forEach(p => {
-          const div = document.createElement('div')
-          div.className = 'online-user'
-          div.textContent = '🟢 ' + p.username
-          onlineDiv.appendChild(div)
-        })
+      const users = []
+      Object.values(state).forEach(presences => presences.forEach(p => users.push(p.username)))
+      users.forEach(u => {
+        const div = document.createElement('div')
+        div.className = 'online-user'
+        div.innerHTML = `
+          <div class="online-avatar">${u.charAt(0).toUpperCase()}</div>
+          <span>${u}</span>
+          <div class="online-dot" style="margin-left:auto"></div>
+        `
+        onlineDiv.appendChild(div)
       })
+      document.getElementById('stat-online').textContent = users.length
+      document.getElementById('offline-count').textContent = (9 - users.length) + ' pote(s) hors ligne'
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') await channel.track({ username })
     })
+}
+
+async function loadHomeStats() {
+  const { count: msgCount } = await supabase.from('messages').select('*', { count: 'exact', head: true })
+  document.getElementById('stat-messages').textContent = msgCount || 0
+
+  const potes = ['renan','noe','cesar','erwan','wili','raphaelle','lilou','gwendal','nicolas']
+  let total = 0
+  for (const pote of potes) {
+    const { data } = await supabase.storage.from('photos').list(pote, { limit: 100 })
+    if (data) total += data.length
+  }
+  document.getElementById('stat-photos').textContent = total
+}
+
+async function loadHomeMessages() {
+  const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(5)
+  const container = document.getElementById('home-messages')
+  if (!data?.length) { container.innerHTML = '<p style="color:var(--text-muted);font-size:0.88rem">Aucun message pour l\'instant...</p>'; return }
+  container.innerHTML = ''
+  data.forEach(msg => {
+    const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const div = document.createElement('div')
+    div.className = 'home-message'
+    div.innerHTML = `
+      <div class="home-message-avatar">${msg.username.charAt(0).toUpperCase()}</div>
+      <div class="home-message-content">
+        <div class="home-message-header">
+          <span class="home-message-username">${msg.username}</span>
+          <span class="home-message-time">${time}</span>
+        </div>
+        <div class="home-message-text">${msg.content}</div>
+      </div>
+    `
+    container.appendChild(div)
+  })
 }
 
 window.showSection = function(name) {

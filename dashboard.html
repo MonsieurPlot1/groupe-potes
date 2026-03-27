@@ -34,10 +34,49 @@
 
     <!-- Accueil -->
     <div id="section-accueil" class="section active">
-      <h1>Bienvenue 👋</h1>
-      <div class="online-box">
-        <h3>🟢 En ligne</h3>
-        <div id="online-users"></div>
+      <div class="home-header">
+        <div>
+          <h1 id="welcome-title">Bienvenue 👋</h1>
+          <p class="home-subtitle">Bon retour parmi les potes !</p>
+        </div>
+      </div>
+
+      <div class="home-grid">
+        <!-- Qui est en ligne -->
+        <div class="home-card online-card">
+          <div class="home-card-title">🟢 En ligne</div>
+          <div id="online-users"></div>
+          <div id="offline-count" class="offline-count"></div>
+        </div>
+
+        <!-- Stats -->
+        <div class="home-card stats-card">
+          <div class="home-card-title">📊 Stats du groupe</div>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-number" id="stat-messages">—</div>
+              <div class="stat-label">Messages</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number" id="stat-photos">—</div>
+              <div class="stat-label">Photos</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number" id="stat-online">—</div>
+              <div class="stat-label">En ligne</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">9</div>
+              <div class="stat-label">Potes</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Derniers messages -->
+        <div class="home-card messages-card">
+          <div class="home-card-title">💬 Derniers messages</div>
+          <div id="home-messages"></div>
+        </div>
       </div>
     </div>
 
