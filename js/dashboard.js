@@ -162,6 +162,30 @@ let chatUsername = null
 let replyingTo = null
 let typingTimeout = null
 let typingChannel = null
+let lastMessageDate = null
+let unreadCount = 0
+let chatOpen = false
+let chatInitialized = false
+
+function updateBadge() {
+  const badge = document.getElementById('chat-badge')
+  if (!badge) return
+  if (unreadCount > 0) {
+    badge.style.display = 'inline-flex'
+    badge.textContent = unreadCount > 9 ? '9+' : unreadCount
+  } else {
+    badge.style.display = 'none'
+  }
+}
+
+function formatDateLabel(date) {
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (date.toDateString() === today.toDateString()) return 'Aujourd\'hui'
+  if (date.toDateString() === yesterday.toDateString()) return 'Hier'
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+}
 
 function initChat() {
   chatUsername = currentUser.user_metadata?.username || currentUser.email
@@ -178,6 +202,16 @@ function initChat() {
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, payload => {
       const el = document.getElementById('msg-' + payload.new.id)
       if (el) {
+        // Mise à jour du contenu (si édité et pas en cours d'édition)
+        const bubble = el.querySelector('.chat-bubble')
+        if (bubble && !bubble.querySelector('.edit-wrapper')) {
+          if (payload.new.image_url) {
+            bubble.innerHTML = `<img class="chat-img" src="${payload.new.image_url}" onclick="window.open('${payload.new.image_url}','_blank')" />`
+          } else {
+            bubble.textContent = payload.new.content
+          }
+        }
+        // Mise à jour des réactions
         const reactionsEl = el.querySelector('.chat-reactions')
         const newReactions = buildReactions(payload.new)
         if (reactionsEl) reactionsEl.outerHTML = newReactions
@@ -205,6 +239,8 @@ function initChat() {
 }
 
 async function loadMessages() {
+  chatInitialized = false
+  lastMessageDate = null
   const { data } = await supabase
     .from('messages')
     .select('*')
@@ -214,13 +250,14 @@ async function loadMessages() {
   const container = document.getElementById('chat-messages')
   container.innerHTML = ''
   data.forEach(msg => appendMessage(msg))
+  chatInitialized = true
 }
 
 function buildReactions(msg) {
   const reactions = msg.reactions || {}
   if (!Object.keys(reactions).length) return '<div class="chat-reactions"></div>'
   const html = Object.entries(reactions).map(([emoji, users]) =>
-    users.length ? `<span class="reaction-btn ${users.includes(chatUsername) ? 'active' : ''}" data-id="${msg.id}" data-emoji="${emoji}">${emoji} ${users.length}</span>` : ''
+    users.length ? `<span class="reaction-btn ${users.includes(chatUsername) ? 'active' : ''}" data-id="${msg.id}" data-emoji="${emoji}" title="${users.join(', ')}">${emoji} ${users.length}</span>` : ''
   ).join('')
   return `<div class="chat-reactions">${html}</div>`
 }
@@ -229,6 +266,16 @@ function appendMessage(msg) {
   const container = document.getElementById('chat-messages')
   const isMine = msg.username === chatUsername
   const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+
+  // Séparateur de date
+  const msgDateStr = new Date(msg.created_at).toDateString()
+  if (msgDateStr !== lastMessageDate) {
+    lastMessageDate = msgDateStr
+    const sep = document.createElement('div')
+    sep.className = 'date-separator'
+    sep.textContent = formatDateLabel(new Date(msg.created_at))
+    container.appendChild(sep)
+  }
 
   // Détecte si même personne que le message précédent
   const lastMsg = container.lastElementChild
@@ -247,21 +294,32 @@ function appendMessage(msg) {
     replyHtml = `<div class="reply-preview">↩️ ${msg.reply_preview}</div>`
   }
 
+  const bubbleContent = msg.image_url
+    ? `<img class="chat-img" src="${msg.image_url}" onclick="window.open('${msg.image_url}','_blank')" />`
+    : msg.content
+
   div.innerHTML = `
     ${replyHtml}
     <div class="msg-wrapper">
       <div class="msg-actions" id="actions-${msg.id}">
         <button onclick="startReply('${msg.id}', '${msg.content.replace(/'/g, "\\'")}', '${msg.username}')">↩️</button>
         <button onclick="showReactionPicker('${msg.id}')">😄</button>
+        ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${msg.content.replace(/'/g, "\\'")}')">✏️</button>` : ''}
         ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
       </div>
-      <div class="chat-bubble">${msg.content}</div>
+      <div class="chat-bubble">${bubbleContent}</div>
     </div>
     ${buildReactions(msg)}
     <div class="chat-meta">${isMine ? '' : msg.username + ' · '}${time}</div>
   `
   container.appendChild(div)
   container.scrollTop = container.scrollHeight
+
+  // Badge de notif si on est ailleurs
+  if (chatInitialized && !chatOpen && !isMine) {
+    unreadCount++
+    updateBadge()
+  }
 }
 
 window.startReply = function(id, content, username) {
@@ -280,6 +338,58 @@ window.cancelReply = function() {
 window.deleteMessage = async function(id) {
   const { error } = await supabase.from('messages').delete().eq('id', id)
   if (!error) document.getElementById('msg-' + id)?.remove()
+}
+
+window.startEdit = function(id, content) {
+  const bubble = document.querySelector('#msg-' + id + ' .chat-bubble')
+  if (!bubble) return
+  bubble.dataset.original = content
+  bubble.innerHTML = `
+    <div class="edit-wrapper">
+      <input class="edit-input" id="edit-input-${id}" />
+      <div class="edit-actions">
+        <button onclick="window.saveEdit('${id}')">✓</button>
+        <button onclick="window.cancelEdit('${id}')">✕</button>
+      </div>
+    </div>
+  `
+  const inp = document.getElementById('edit-input-' + id)
+  inp.value = content
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') window.saveEdit(id)
+    if (e.key === 'Escape') window.cancelEdit(id)
+  })
+  inp.focus()
+}
+
+window.saveEdit = async function(id) {
+  const input = document.getElementById('edit-input-' + id)
+  if (!input) return
+  const newContent = input.value.trim()
+  if (!newContent) return
+  await supabase.from('messages').update({ content: newContent }).eq('id', id)
+}
+
+window.cancelEdit = function(id) {
+  const bubble = document.querySelector('#msg-' + id + ' .chat-bubble')
+  if (!bubble) return
+  bubble.textContent = bubble.dataset.original || ''
+}
+
+window.sendImage = async function() {
+  const input = document.getElementById('chat-image-input')
+  const file = input.files[0]
+  if (!file) return
+  const fileName = 'chat/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const { error } = await supabase.storage.from('photos').upload(fileName, file)
+  if (error) { console.error('Upload image chat:', error.message); return }
+  const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName)
+  await supabase.from('messages').insert({
+    username: chatUsername,
+    content: '📷 Photo',
+    image_url: urlData.publicUrl
+  })
+  input.value = ''
 }
 
 window.showReactionPicker = function(id) {
@@ -343,7 +453,14 @@ document.addEventListener('DOMContentLoaded', () => {
 const _showSection = window.showSection
 window.showSection = function(name) {
   _showSection.call(this, name)
-  if (name === 'chat' && !chatUsername) initChat()
+  if (name === 'chat') {
+    chatOpen = true
+    unreadCount = 0
+    updateBadge()
+    if (!chatUsername) initChat()
+  } else {
+    chatOpen = false
+  }
 }
 
 document.addEventListener('click', (e) => {

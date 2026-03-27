@@ -21,7 +21,7 @@
       <button class="nav-btn" onclick="showSection('photos')">📸 Photos</button>
       <button class="nav-btn" onclick="showSection('calendrier')">📅 Calendrier</button>
       <button class="nav-btn" onclick="showSection('classement')">🏆 Classement</button>
-      <button class="nav-btn" onclick="showSection('chat')">💬 Chat</button>
+      <button class="nav-btn" onclick="showSection('chat')">💬 Chat <span class="notif-badge" id="chat-badge" style="display:none"></span></button>
     </nav>
     <div class="sidebar-bottom">
       <div id="user-info"></div>
@@ -161,6 +161,8 @@
           <button onclick="cancelReply()">✕</button>
         </div>
         <div class="chat-input-box">
+          <label class="attach-btn" for="chat-image-input" title="Envoyer une image">📎</label>
+          <input type="file" id="chat-image-input" accept="image/*" style="display:none" onchange="sendImage()" />
           <input type="text" id="chat-input" placeholder="Ton message..." onkeydown="if(event.key==='Enter') sendMessage()" />
           <button onclick="sendMessage()">Envoyer</button>
         </div>
