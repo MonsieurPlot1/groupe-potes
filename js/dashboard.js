@@ -134,29 +134,51 @@ if (localStorage.getItem('theme') === 'light') {
 
 // Chat
 let chatUsername = null
+let replyingTo = null
+let typingTimeout = null
+let typingChannel = null
 
 function initChat() {
   chatUsername = currentUser.user_metadata?.username || currentUser.email
 
   loadMessages()
 
+  // Ecouter nouveaux messages
   const channel = supabase
-    .channel('chat-room', {
-      config: { broadcast: { self: true } }
-    })
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'messages'
-    }, payload => {
+    .channel('chat-room', { config: { broadcast: { self: true } } })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
       appendMessage(payload.new)
     })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
+      document.getElementById('msg-' + payload.old.id)?.remove()
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, payload => {
+      const el = document.getElementById('msg-' + payload.new.id)
+      if (el) {
+        const reactionsEl = el.querySelector('.chat-reactions')
+        if (reactionsEl) reactionsEl.outerHTML = buildReactions(payload.new)
+        else el.querySelector('.chat-bubble').insertAdjacentHTML('afterend', buildReactions(payload.new))
+      }
+    })
     .subscribe((status) => {
-      console.log('Chat status:', status)
       if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
         setTimeout(() => channel.subscribe(), 2000)
       }
     })
+
+  // Typing indicator
+  typingChannel = supabase.channel('typing')
+  typingChannel
+    .on('broadcast', { event: 'typing' }, ({ payload }) => {
+      if (payload.username !== chatUsername) {
+        const el = document.getElementById('typing-indicator')
+        el.textContent = payload.username + ' est en train d\'écrire...'
+        el.style.opacity = '1'
+        clearTimeout(el._timeout)
+        el._timeout = setTimeout(() => el.style.opacity = '0', 2000)
+      }
+    })
+    .subscribe()
 }
 
 async function loadMessages() {
@@ -171,31 +193,121 @@ async function loadMessages() {
   data.forEach(msg => appendMessage(msg))
 }
 
+function buildReactions(msg) {
+  const reactions = msg.reactions || {}
+  if (!Object.keys(reactions).length) return '<div class="chat-reactions"></div>'
+  const html = Object.entries(reactions).map(([emoji, users]) =>
+    users.length ? `<button class="reaction-btn ${users.includes(chatUsername) ? 'active' : ''}" onclick="toggleReaction('${msg.id}', '${emoji}')">${emoji} ${users.length}</button>` : ''
+  ).join('')
+  return `<div class="chat-reactions">${html}</div>`
+}
+
 function appendMessage(msg) {
   const container = document.getElementById('chat-messages')
   const isMine = msg.username === chatUsername
+  const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
   const div = document.createElement('div')
   div.className = 'chat-message ' + (isMine ? 'mine' : 'other')
+  div.id = 'msg-' + msg.id
 
-  const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  let replyHtml = ''
+  if (msg.reply_preview) {
+    replyHtml = `<div class="reply-preview">↩️ ${msg.reply_preview}</div>`
+  }
 
   div.innerHTML = `
-    <div class="chat-bubble">${msg.content}</div>
+    ${replyHtml}
+    <div class="chat-bubble" onmouseenter="showActions('${msg.id}', ${isMine})" onmouseleave="hideActions('${msg.id}')">
+      ${msg.content}
+      <div class="msg-actions" id="actions-${msg.id}">
+        <button onclick="startReply('${msg.id}', '${msg.content.replace(/'/g, "\\'")}', '${msg.username}')">↩️</button>
+        <button onclick="showReactionPicker('${msg.id}')">😄</button>
+        ${isMine ? `<button onclick="deleteMessage('${msg.id}')">🗑️</button>` : ''}
+      </div>
+    </div>
+    ${buildReactions(msg)}
     <div class="chat-meta">${isMine ? '' : msg.username + ' · '}${time}</div>
   `
   container.appendChild(div)
   container.scrollTop = container.scrollHeight
 }
 
+window.showActions = function(id) {
+  document.getElementById('actions-' + id).style.opacity = '1'
+}
+
+window.hideActions = function(id) {
+  document.getElementById('actions-' + id).style.opacity = '0'
+}
+
+window.startReply = function(id, content, username) {
+  replyingTo = { id, content, username }
+  const box = document.getElementById('reply-box')
+  box.style.display = 'flex'
+  box.querySelector('span').textContent = '↩️ ' + username + ': ' + content.substring(0, 50)
+  document.getElementById('chat-input').focus()
+}
+
+window.cancelReply = function() {
+  replyingTo = null
+  document.getElementById('reply-box').style.display = 'none'
+}
+
+window.deleteMessage = async function(id) {
+  await supabase.from('messages').delete().eq('id', id)
+}
+
+window.showReactionPicker = function(id) {
+  const existing = document.getElementById('picker-' + id)
+  if (existing) { existing.remove(); return }
+  const emojis = ['😂', '❤️', '🔥', '👍', '😮', '😢']
+  const picker = document.createElement('div')
+  picker.className = 'emoji-picker'
+  picker.id = 'picker-' + id
+  picker.innerHTML = emojis.map(e => `<button onclick="toggleReaction('${id}', '${e}')">${e}</button>`).join('')
+  document.getElementById('msg-' + id).appendChild(picker)
+  setTimeout(() => document.addEventListener('click', () => picker.remove(), { once: true }), 100)
+}
+
+window.toggleReaction = async function(id, emoji) {
+  const { data } = await supabase.from('messages').select('reactions').eq('id', id).single()
+  const reactions = data.reactions || {}
+  if (!reactions[emoji]) reactions[emoji] = []
+  const idx = reactions[emoji].indexOf(chatUsername)
+  if (idx > -1) reactions[emoji].splice(idx, 1)
+  else reactions[emoji].push(chatUsername)
+  await supabase.from('messages').update({ reactions }).eq('id', id)
+  document.getElementById('picker-' + id)?.remove()
+}
+
 window.sendMessage = async function() {
   const input = document.getElementById('chat-input')
   const content = input.value.trim()
   if (!content) return
-
   input.value = ''
-  await supabase.from('messages').insert({ username: chatUsername, content })
+
+  const msg = { username: chatUsername, content }
+  if (replyingTo) {
+    msg.reply_to = replyingTo.id
+    msg.reply_preview = replyingTo.username + ': ' + replyingTo.content.substring(0, 60)
+    cancelReply()
+  }
+  await supabase.from('messages').insert(msg)
 }
+
+// Typing indicator
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('chat-input')
+  if (input) {
+    input.addEventListener('input', () => {
+      if (!typingChannel || !chatUsername) return
+      clearTimeout(typingTimeout)
+      typingChannel.send({ type: 'broadcast', event: 'typing', payload: { username: chatUsername } })
+      typingTimeout = setTimeout(() => {}, 1500)
+    })
+  }
+})
 
 // Init chat quand on clique sur l'onglet
 const _showSection = window.showSection

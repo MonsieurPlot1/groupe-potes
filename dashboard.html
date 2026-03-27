@@ -111,10 +111,16 @@
     </div>
 
     <!-- Chat -->
+    <!-- Chat -->
     <div id="section-chat" class="section">
       <h1>💬 Chat</h1>
       <div class="chat-box">
         <div id="chat-messages"></div>
+        <div id="typing-indicator"></div>
+        <div id="reply-box" style="display:none">
+          <span></span>
+          <button onclick="cancelReply()">✕</button>
+        </div>
         <div class="chat-input-box">
           <input type="text" id="chat-input" placeholder="Ton message..." onkeydown="if(event.key==='Enter') sendMessage()" />
           <button onclick="sendMessage()">Envoyer</button>
