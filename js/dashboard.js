@@ -7,18 +7,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let currentUser = null
 let currentPote = null
 
-// Vérifie si connecté
 async function init() {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
-    window.location.href = 'index.html'
-    return
-  }
+  if (!session) { window.location.href = 'index.html'; return }
   currentUser = session.user
   const username = currentUser.user_metadata?.username || currentUser.email
   document.getElementById('user-info').textContent = '👤 ' + username
 
-  // Presence (qui est en ligne)
   const channel = supabase.channel('online-users')
   channel
     .on('presence', { event: 'sync' }, () => {
@@ -35,13 +30,10 @@ async function init() {
       })
     })
     .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await channel.track({ username })
-      }
+      if (status === 'SUBSCRIBED') await channel.track({ username })
     })
 }
 
-// Navigation
 window.showSection = function(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
@@ -49,7 +41,6 @@ window.showSection = function(name) {
   event.target.classList.add('active')
 }
 
-// Ouvrir le dossier d'un pote
 window.openPote = function(pote) {
   currentPote = pote
   document.getElementById('potes-grid').style.display = 'none'
@@ -58,14 +49,12 @@ window.openPote = function(pote) {
   loadPhotos(pote)
 }
 
-// Retour à la grille
 window.closePote = function() {
   currentPote = null
   document.getElementById('potes-grid').style.display = 'grid'
   document.getElementById('pote-view').style.display = 'none'
 }
 
-// Charger les photos d'un pote
 async function loadPhotos(pote) {
   const { data, error } = await supabase.storage.from('photos').list(pote, { limit: 100 })
   const grid = document.getElementById('photo-grid')
@@ -83,26 +72,17 @@ async function loadPhotos(pote) {
   })
 }
 
-// Uploader des photos
 window.uploadPhotos = async function() {
   const input = document.getElementById('photo-input')
   const msg = document.getElementById('upload-message')
   const files = input.files
-  if (!files.length) {
-    msg.style.color = '#f87171'
-    msg.textContent = 'Sélectionne au moins une photo !'
-    return
-  }
+  if (!files.length) { msg.style.color = '#f87171'; msg.textContent = 'Sélectionne au moins une photo !'; return }
   msg.style.color = '#a78bfa'
   msg.textContent = 'Upload en cours...'
   for (const file of files) {
     const fileName = currentPote + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const { error } = await supabase.storage.from('photos').upload(fileName, file)
-    if (error) {
-      msg.style.color = '#f87171'
-      msg.textContent = 'Erreur : ' + error.message
-      return
-    }
+    if (error) { msg.style.color = '#f87171'; msg.textContent = 'Erreur : ' + error.message; return }
   }
   msg.style.color = '#4ade80'
   msg.textContent = 'Photos envoyées ! ✅'
@@ -110,7 +90,6 @@ window.uploadPhotos = async function() {
   loadPhotos(currentPote)
 }
 
-// Déconnexion
 window.logout = async function() {
   await supabase.auth.signOut()
   window.location.href = 'index.html'
@@ -118,7 +97,6 @@ window.logout = async function() {
 
 init()
 
-// Thème jour/nuit
 window.toggleTheme = function() {
   document.body.classList.toggle('light')
   const btn = document.getElementById('theme-btn')
@@ -126,7 +104,6 @@ window.toggleTheme = function() {
   localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark')
 }
 
-// Applique le thème sauvegardé
 if (localStorage.getItem('theme') === 'light') {
   document.body.classList.add('light')
   document.getElementById('theme-btn').textContent = '🌙'
@@ -140,10 +117,8 @@ let typingChannel = null
 
 function initChat() {
   chatUsername = currentUser.user_metadata?.username || currentUser.email
-
   loadMessages()
 
-  // Ecouter nouveaux messages
   const channel = supabase
     .channel('chat-room', { config: { broadcast: { self: true } } })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
@@ -156,8 +131,9 @@ function initChat() {
       const el = document.getElementById('msg-' + payload.new.id)
       if (el) {
         const reactionsEl = el.querySelector('.chat-reactions')
-        if (reactionsEl) reactionsEl.outerHTML = buildReactions(payload.new)
-        else el.querySelector('.chat-bubble').insertAdjacentHTML('afterend', buildReactions(payload.new))
+        const newReactions = buildReactions(payload.new)
+        if (reactionsEl) reactionsEl.outerHTML = newReactions
+        else el.querySelector('.msg-wrapper').insertAdjacentHTML('afterend', newReactions)
       }
     })
     .subscribe((status) => {
@@ -166,7 +142,6 @@ function initChat() {
       }
     })
 
-  // Typing indicator
   typingChannel = supabase.channel('typing')
   typingChannel
     .on('broadcast', { event: 'typing' }, ({ payload }) => {
@@ -197,7 +172,7 @@ function buildReactions(msg) {
   const reactions = msg.reactions || {}
   if (!Object.keys(reactions).length) return '<div class="chat-reactions"></div>'
   const html = Object.entries(reactions).map(([emoji, users]) =>
-    users.length ? `<button class="reaction-btn ${users.includes(chatUsername) ? 'active' : ''}" onclick="toggleReaction('${msg.id}', '${emoji}')">${emoji} ${users.length}</button>` : ''
+    users.length ? `<span class="reaction-btn ${users.includes(chatUsername) ? 'active' : ''}" data-id="${msg.id}" data-emoji="${emoji}">${emoji} ${users.length}</span>` : ''
   ).join('')
   return `<div class="chat-reactions">${html}</div>`
 }
@@ -218,27 +193,19 @@ function appendMessage(msg) {
 
   div.innerHTML = `
     ${replyHtml}
-    <div class="chat-bubble" onmouseenter="showActions('${msg.id}', ${isMine})" onmouseleave="hideActions('${msg.id}')">
-      ${msg.content}
+    <div class="msg-wrapper">
       <div class="msg-actions" id="actions-${msg.id}">
         <button onclick="startReply('${msg.id}', '${msg.content.replace(/'/g, "\\'")}', '${msg.username}')">↩️</button>
         <button onclick="showReactionPicker('${msg.id}')">😄</button>
-        ${isMine ? `<button onclick="deleteMessage('${msg.id}')">🗑️</button>` : ''}
+        ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
       </div>
+      <div class="chat-bubble">${msg.content}</div>
     </div>
     ${buildReactions(msg)}
     <div class="chat-meta">${isMine ? '' : msg.username + ' · '}${time}</div>
   `
   container.appendChild(div)
   container.scrollTop = container.scrollHeight
-}
-
-window.showActions = function(id) {
-  document.getElementById('actions-' + id).style.opacity = '1'
-}
-
-window.hideActions = function(id) {
-  document.getElementById('actions-' + id).style.opacity = '0'
 }
 
 window.startReply = function(id, content, username) {
@@ -255,7 +222,8 @@ window.cancelReply = function() {
 }
 
 window.deleteMessage = async function(id) {
-  await supabase.from('messages').delete().eq('id', id)
+  const { error } = await supabase.from('messages').delete().eq('id', id)
+  if (!error) document.getElementById('msg-' + id)?.remove()
 }
 
 window.showReactionPicker = function(id) {
@@ -265,7 +233,7 @@ window.showReactionPicker = function(id) {
   const picker = document.createElement('div')
   picker.className = 'emoji-picker'
   picker.id = 'picker-' + id
-  picker.innerHTML = emojis.map(e => `<button onclick="toggleReaction('${id}', '${e}')">${e}</button>`).join('')
+  picker.innerHTML = emojis.map(e => `<button onclick="window.toggleReaction('${id}', '${e}')">${e}</button>`).join('')
   document.getElementById('msg-' + id).appendChild(picker)
   setTimeout(() => document.addEventListener('click', () => picker.remove(), { once: true }), 100)
 }
@@ -296,7 +264,6 @@ window.sendMessage = async function() {
   await supabase.from('messages').insert(msg)
 }
 
-// Typing indicator
 document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('chat-input')
   if (input) {
@@ -309,9 +276,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 })
 
-// Init chat quand on clique sur l'onglet
 const _showSection = window.showSection
 window.showSection = function(name) {
   _showSection.call(this, name)
   if (name === 'chat' && !chatUsername) initChat()
 }
+
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('reaction-btn')) {
+    window.toggleReaction(e.target.dataset.id, e.target.dataset.emoji)
+  }
+})
