@@ -4,6 +4,61 @@ const SUPABASE_URL = 'https://htsxdzlcmobmpevzhshh.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_V_w52NPbhRA69cOPbbIwIg_CnfS_22A'
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
+// ── Avatars ──────────────────────────────────────────
+const avatarCache = {}
+
+function renderAvatarEl(username, cls = 'user-avatar-circle') {
+  const url = avatarCache[username]
+  if (url) {
+    const img = document.createElement('img')
+    img.src = url; img.className = 'avatar-img'; img.alt = username
+    const wrap = document.createElement('div')
+    wrap.className = cls; wrap.appendChild(img)
+    return wrap
+  }
+  const div = document.createElement('div')
+  div.className = cls
+  div.textContent = username.charAt(0).toUpperCase()
+  if (avatarCache[username] === undefined) {
+    avatarCache[username] = null
+    const { data } = supabase.storage.from('photos').getPublicUrl('avatars/' + username + '.jpg')
+    fetch(data.publicUrl, { method: 'HEAD' }).then(res => {
+      if (res.ok) {
+        avatarCache[username] = data.publicUrl
+        if (div.isConnected) {
+          const img = document.createElement('img')
+          img.src = data.publicUrl; img.className = 'avatar-img'; img.alt = username
+          div.innerHTML = ''; div.appendChild(img)
+        }
+      }
+    }).catch(() => {})
+  }
+  return div
+}
+
+// ── Compression ──────────────────────────────────────
+async function compressImage(file, maxWidth = 1600, quality = 0.82) {
+  if (!file.type.startsWith('image/')) return file
+  return new Promise(resolve => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxWidth) { height = Math.round(height * maxWidth / width); width = maxWidth }
+      const canvas = document.createElement('canvas')
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        blob => resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }) : file),
+        'image/jpeg', quality
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
+
 let currentUser = null
 let currentPote = null
 
@@ -12,7 +67,10 @@ async function init() {
   if (!session) { window.location.href = 'index.html'; return }
   currentUser = session.user
   const username = currentUser.user_metadata?.username || currentUser.email
-  document.getElementById('user-info').textContent = '👤 ' + username
+  document.getElementById('user-name-display').textContent = username
+  const myAv = renderAvatarEl(username, 'user-avatar-circle')
+  const myAvDisplay = document.getElementById('my-avatar-display')
+  myAvDisplay.innerHTML = ''; myAvDisplay.appendChild(myAv)
   document.getElementById('welcome-title').textContent = 'Bienvenue ' + username + ' 👋'
 
   // Stats
@@ -31,11 +89,12 @@ async function init() {
       users.forEach(u => {
         const div = document.createElement('div')
         div.className = 'online-user'
-        div.innerHTML = `
-          <div class="online-avatar">${u.charAt(0).toUpperCase()}</div>
-          <span>${u}</span>
-          <div class="online-dot" style="margin-left:auto"></div>
-        `
+        const avEl = renderAvatarEl(u, 'online-avatar')
+        const nameEl = document.createElement('span')
+        nameEl.textContent = u
+        const dotEl = document.createElement('div')
+        dotEl.className = 'online-dot'; dotEl.style.marginLeft = 'auto'
+        div.appendChild(avEl); div.appendChild(nameEl); div.appendChild(dotEl)
         onlineDiv.appendChild(div)
       })
       document.getElementById('stat-online').textContent = users.length
@@ -68,16 +127,18 @@ async function loadHomeMessages() {
     const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     const div = document.createElement('div')
     div.className = 'home-message'
-    div.innerHTML = `
-      <div class="home-message-avatar">${msg.username.charAt(0).toUpperCase()}</div>
-      <div class="home-message-content">
-        <div class="home-message-header">
-          <span class="home-message-username">${msg.username}</span>
-          <span class="home-message-time">${time}</span>
-        </div>
-        <div class="home-message-text">${msg.content}</div>
+    const avEl = renderAvatarEl(msg.username, 'home-message-avatar')
+    div.appendChild(avEl)
+    const contentEl = document.createElement('div')
+    contentEl.className = 'home-message-content'
+    contentEl.innerHTML = `
+      <div class="home-message-header">
+        <span class="home-message-username">${msg.username}</span>
+        <span class="home-message-time">${time}</span>
       </div>
+      <div class="home-message-text">${msg.content || '📷 Photo'}</div>
     `
+    div.appendChild(contentEl)
     container.appendChild(div)
   })
 }
@@ -129,7 +190,8 @@ window.uploadPhotos = async function() {
   msg.textContent = 'Upload en cours...'
   for (const file of files) {
     const fileName = currentPote + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const { error } = await supabase.storage.from('photos').upload(fileName, file)
+    const compressed = await compressImage(file)
+    const { error } = await supabase.storage.from('photos').upload(fileName, compressed)
     if (error) { msg.style.color = '#f87171'; msg.textContent = 'Erreur : ' + error.message; return }
   }
   msg.style.color = '#4ade80'
@@ -166,6 +228,9 @@ let lastMessageDate = null
 let unreadCount = 0
 let chatOpen = false
 let chatInitialized = false
+let chatHasMore = true
+let chatOldestAt = null
+let chatLoadingMore = false
 
 function updateBadge() {
   const val = unreadCount > 9 ? '9+' : unreadCount
@@ -241,19 +306,120 @@ function initChat() {
     .subscribe()
 }
 
+const CHAT_PAGE = 50
+
 async function loadMessages() {
   chatInitialized = false
   lastMessageDate = null
+  chatHasMore = true
+  chatOldestAt = null
+  chatLoadingMore = false
+
   const { data } = await supabase
     .from('messages')
     .select('*')
-    .order('created_at', { ascending: true })
-    .limit(100)
+    .order('created_at', { ascending: false })
+    .limit(CHAT_PAGE)
 
   const container = document.getElementById('chat-messages')
-  container.innerHTML = ''
-  data.forEach(msg => appendMessage(msg))
+  container.innerHTML = '<div id="chat-sentinel" style="height:1px;flex-shrink:0"></div>'
+
+  if (!data?.length) { chatInitialized = true; return }
+
+  const msgs = [...data].reverse()
+  chatOldestAt = msgs[0].created_at
+  if (data.length < CHAT_PAGE) chatHasMore = false
+
+  msgs.forEach(msg => appendMessage(msg))
+  container.scrollTop = container.scrollHeight
   chatInitialized = true
+
+  setupLoadMoreObserver()
+}
+
+function setupLoadMoreObserver() {
+  const sentinel = document.getElementById('chat-sentinel')
+  if (!sentinel) return
+
+  const observer = new IntersectionObserver(async entries => {
+    if (!entries[0].isIntersecting || chatLoadingMore || !chatHasMore) return
+    chatLoadingMore = true
+
+    const container = document.getElementById('chat-messages')
+    const prevHeight = container.scrollHeight
+
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .lt('created_at', chatOldestAt)
+      .limit(CHAT_PAGE)
+
+    if (!data?.length || !data) {
+      chatHasMore = false
+      observer.disconnect()
+      chatLoadingMore = false
+      return
+    }
+    if (data.length < CHAT_PAGE) chatHasMore = false
+
+    const msgs = [...data].reverse()
+    chatOldestAt = msgs[0].created_at
+
+    // Construire le fragment à insérer après le sentinel
+    const frag = document.createDocumentFragment()
+    const tempLastDate = lastMessageDate
+    lastMessageDate = null
+
+    msgs.forEach(msg => {
+      const isMine = msg.username === chatUsername
+      const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      const msgDateStr = new Date(msg.created_at).toDateString()
+
+      if (msgDateStr !== lastMessageDate) {
+        lastMessageDate = msgDateStr
+        const sep = document.createElement('div')
+        sep.className = 'date-separator'
+        sep.textContent = formatDateLabel(new Date(msg.created_at))
+        frag.appendChild(sep)
+      }
+
+      const div = document.createElement('div')
+      div.className = 'chat-message ' + (isMine ? 'mine' : 'other')
+      div.id = 'msg-' + msg.id
+      div.dataset.username = msg.username
+      div.dataset.time = time
+
+      const replyHtml = msg.reply_preview ? `<div class="reply-preview">↩️ ${msg.reply_preview}</div>` : ''
+      const bubbleContent = msg.image_url
+        ? `<img class="chat-img" src="${msg.image_url}" onclick="window.open('${msg.image_url}','_blank')" />`
+        : (msg.content || '')
+
+      div.innerHTML = `
+        ${replyHtml}
+        <div class="msg-wrapper">
+          <div class="msg-actions" id="actions-${msg.id}">
+            <button onclick="startReply('${msg.id}', '${(msg.content||'').replace(/'/g,"\\'")}', '${msg.username}')">↩️</button>
+            <button onclick="showReactionPicker('${msg.id}')">😄</button>
+            ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${(msg.content||'').replace(/'/g,"\\'")}')">✏️</button>` : ''}
+            ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
+          </div>
+          <div class="chat-bubble">${bubbleContent}</div>
+        </div>
+        ${buildReactions(msg)}
+        <div class="chat-meta">${isMine ? '' : msg.username + ' · '}${time}</div>
+      `
+      frag.appendChild(div)
+    })
+
+    lastMessageDate = tempLastDate
+    sentinel.after(frag)
+    container.scrollTop = container.scrollHeight - prevHeight
+    chatLoadingMore = false
+
+  }, { root: document.getElementById('chat-messages'), rootMargin: '80px 0px 0px 0px', threshold: 0 })
+
+  observer.observe(sentinel)
 }
 
 function buildReactions(msg) {
@@ -384,7 +550,8 @@ window.sendImage = async function() {
   const file = input.files[0]
   if (!file) return
   const fileName = 'chat/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const { error } = await supabase.storage.from('photos').upload(fileName, file)
+  const compressed = await compressImage(file, 1200, 0.80)
+  const { error } = await supabase.storage.from('photos').upload(fileName, compressed)
   if (error) { console.error('Upload image chat:', error.message); return }
   const { data: urlData } = supabase.storage.from('photos').getPublicUrl(fileName)
   await supabase.from('messages').insert({
@@ -470,4 +637,21 @@ document.addEventListener('click', (e) => {
   if (e.target.classList.contains('reaction-btn')) {
     window.toggleReaction(e.target.dataset.id, e.target.dataset.emoji)
   }
+})
+
+document.addEventListener('change', async e => {
+  if (e.target.id !== 'avatar-upload-input') return
+  const file = e.target.files[0]
+  if (!file || !currentUser) return
+  const username = currentUser.user_metadata?.username || currentUser.email
+  const compressed = await compressImage(file, 400, 0.88)
+  const path = 'avatars/' + username + '.jpg'
+  await supabase.storage.from('photos').remove([path])
+  const { error } = await supabase.storage.from('photos').upload(path, compressed, { contentType: 'image/jpeg', upsert: true })
+  if (!error) {
+    avatarCache[username] = null
+    const myAvDisplay = document.getElementById('my-avatar-display')
+    if (myAvDisplay) { myAvDisplay.innerHTML = ''; myAvDisplay.appendChild(renderAvatarEl(username, 'user-avatar-circle')) }
+  }
+  e.target.value = ''
 })

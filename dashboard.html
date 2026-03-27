@@ -2,6 +2,13 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="G. Potes" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <title>Dashboard - Groupe de Potes</title>
@@ -32,7 +39,12 @@
       <button class="nav-btn" data-section="chat" onclick="showSection('chat')">💬 Chat <span class="notif-badge" id="chat-badge" style="display:none"></span></button>
     </nav>
     <div class="sidebar-bottom">
-      <div id="user-info"></div>
+      <div class="user-widget" id="user-info">
+        <div id="my-avatar-display"></div>
+        <span class="user-widget-name" id="user-name-display"></span>
+        <label class="avatar-edit-btn" for="avatar-upload-input" title="Changer mon avatar">✏️</label>
+        <input type="file" id="avatar-upload-input" accept="image/*" style="display:none">
+      </div>
       <button class="logout-btn" onclick="logout()">🚪 Déconnexion</button>
     </div>
   </div>
@@ -203,6 +215,9 @@
     </button>
   </nav>
 
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
+  </script>
   <script type="module" src="js/supabase.js"></script>
   <script type="module" src="js/dashboard.js"></script>
 </body>

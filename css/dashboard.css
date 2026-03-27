@@ -261,16 +261,55 @@ body.light .blob { opacity: 0.42; filter: blur(80px); }
   gap: 8px;
 }
 
-#user-info {
-  color: var(--text-muted);
-  font-size: 0.79rem;
-  text-align: center;
+.user-widget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 12px;
   background: var(--g1);
-  border-radius: var(--r-lg);
   border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   box-shadow: inset 0 1px 0 var(--spec);
 }
+.user-widget-name {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-avatar-circle {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; color: white;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px var(--accent-glow);
+  overflow: hidden;
+}
+.avatar-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+.avatar-edit-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--g2);
+  border: 1px solid var(--border);
+  font-size: 0.65rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  color: var(--text-muted);
+  box-shadow: inset 0 1px 0 var(--spec);
+}
+.avatar-edit-btn:hover { border-color: var(--border-hi); color: var(--accent); }
 
 .logout-btn {
   background: rgba(248,113,113,0.07);
@@ -915,7 +954,7 @@ body.light .nav-btn:hover {
 }
 
 /* Infos utilisateur et logout */
-body.light #user-info {
+body.light .user-widget {
   background: rgba(190,174,255,0.35);
   border-color: rgba(110,70,210,0.16);
 }
