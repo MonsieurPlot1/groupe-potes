@@ -207,17 +207,131 @@ window.logout = async function() {
 
 init()
 
-window.toggleTheme = function() {
-  document.body.classList.toggle('light')
-  const btn = document.getElementById('theme-btn')
-  btn.textContent = document.body.classList.contains('light') ? '🌙' : '☀️'
-  localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark')
+/* =====================================================
+   THÈMES & PARAMÈTRES
+   ===================================================== */
+
+const THEMES = {
+  violet: { name: 'Violet',  color: '#7c3aed',
+    dark:  { accent2: '#7c3aed', accent: '#c4b5fd', glow: 'rgba(139,92,246,0.38)' },
+    light: { accent2: '#4c1d95', accent: '#6d28d9', glow: 'rgba(109,40,217,0.28)' },
+    blob1: 'rgba(124,58,237,0.75)', blob2: 'rgba(59,130,246,0.65)', blob3: 'rgba(236,72,153,0.45)', blob4: 'rgba(16,185,129,0.3)' },
+  bleu: { name: 'Bleu',    color: '#2563eb',
+    dark:  { accent2: '#1d4ed8', accent: '#93c5fd', glow: 'rgba(59,130,246,0.38)' },
+    light: { accent2: '#1e3a8a', accent: '#1d4ed8', glow: 'rgba(29,78,216,0.28)' },
+    blob1: 'rgba(29,78,216,0.8)', blob2: 'rgba(6,182,212,0.65)', blob3: 'rgba(99,102,241,0.45)', blob4: 'rgba(16,185,129,0.3)' },
+  rose: { name: 'Rose',    color: '#ec4899',
+    dark:  { accent2: '#be185d', accent: '#f9a8d4', glow: 'rgba(236,72,153,0.38)' },
+    light: { accent2: '#9d174d', accent: '#be185d', glow: 'rgba(190,24,93,0.28)' },
+    blob1: 'rgba(190,24,93,0.8)', blob2: 'rgba(239,68,68,0.55)', blob3: 'rgba(168,85,247,0.45)', blob4: 'rgba(251,146,60,0.3)' },
+  vert: { name: 'Forêt',  color: '#10b981',
+    dark:  { accent2: '#065f46', accent: '#6ee7b7', glow: 'rgba(16,185,129,0.35)' },
+    light: { accent2: '#064e3b', accent: '#059669', glow: 'rgba(5,150,105,0.28)' },
+    blob1: 'rgba(6,95,70,0.85)', blob2: 'rgba(5,150,105,0.65)', blob3: 'rgba(16,185,129,0.5)', blob4: 'rgba(59,130,246,0.25)' },
+  ambre: { name: 'Ambre',  color: '#f59e0b',
+    dark:  { accent2: '#b45309', accent: '#fcd34d', glow: 'rgba(251,191,36,0.38)' },
+    light: { accent2: '#92400e', accent: '#b45309', glow: 'rgba(180,83,9,0.28)' },
+    blob1: 'rgba(180,83,9,0.8)', blob2: 'rgba(234,88,12,0.65)', blob3: 'rgba(251,191,36,0.5)', blob4: 'rgba(220,38,38,0.25)' },
+  cyan: { name: 'Cyan',   color: '#06b6d4',
+    dark:  { accent2: '#0e7490', accent: '#67e8f9', glow: 'rgba(6,182,212,0.38)' },
+    light: { accent2: '#164e63', accent: '#0e7490', glow: 'rgba(14,116,144,0.28)' },
+    blob1: 'rgba(14,116,144,0.85)', blob2: 'rgba(6,182,212,0.65)', blob3: 'rgba(99,102,241,0.4)', blob4: 'rgba(16,185,129,0.3)' },
+  rouge: { name: 'Cerise', color: '#ef4444',
+    dark:  { accent2: '#991b1b', accent: '#fca5a5', glow: 'rgba(239,68,68,0.38)' },
+    light: { accent2: '#7f1d1d', accent: '#991b1b', glow: 'rgba(153,27,27,0.28)' },
+    blob1: 'rgba(153,27,27,0.85)', blob2: 'rgba(239,68,68,0.65)', blob3: 'rgba(190,24,93,0.45)', blob4: 'rgba(251,146,60,0.3)' },
+  mono: { name: 'Slate',  color: '#94a3b8',
+    dark:  { accent2: '#475569', accent: '#cbd5e1', glow: 'rgba(100,116,139,0.38)' },
+    light: { accent2: '#334155', accent: '#475569', glow: 'rgba(71,85,105,0.28)' },
+    blob1: 'rgba(51,65,85,0.85)', blob2: 'rgba(71,85,105,0.65)', blob3: 'rgba(100,116,139,0.45)', blob4: 'rgba(30,41,59,0.5)' },
 }
 
-if (localStorage.getItem('theme') === 'light') {
-  document.body.classList.add('light')
-  document.getElementById('theme-btn').textContent = '🌙'
+let currentTheme = localStorage.getItem('color-theme') || 'violet'
+
+function applyTheme(themeId) {
+  const t = THEMES[themeId] || THEMES.violet
+  const root = document.documentElement
+  const isLight = document.body.classList.contains('light')
+  const vars = isLight ? t.light : t.dark
+
+  root.style.setProperty('--accent-2', vars.accent2)
+  root.style.setProperty('--accent', vars.accent)
+  root.style.setProperty('--accent-glow', vars.glow)
+  root.style.setProperty('--blob-1', t.blob1)
+  root.style.setProperty('--blob-2', t.blob2)
+  root.style.setProperty('--blob-3', t.blob3)
+  root.style.setProperty('--blob-4', t.blob4)
+
+  currentTheme = themeId
+  localStorage.setItem('color-theme', themeId)
+
+  document.querySelectorAll('.theme-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.theme === themeId)
+  })
 }
+
+window.toggleTheme = function() {
+  window.toggleLightMode(!document.body.classList.contains('light'))
+}
+
+window.toggleLightMode = function(on) {
+  if (on === undefined) on = !document.body.classList.contains('light')
+  document.body.classList.toggle('light', on)
+  localStorage.setItem('theme', on ? 'light' : 'dark')
+
+  const btn = document.getElementById('theme-btn')
+  if (btn) btn.textContent = on ? '🌙' : '☀️'
+
+  const track = document.getElementById('light-toggle-track')
+  const check = document.getElementById('light-toggle-check')
+  if (track) track.classList.toggle('on', on)
+  if (check) check.checked = on
+
+  applyTheme(currentTheme)
+}
+
+function buildThemePicker() {
+  const grid = document.getElementById('theme-picker-grid')
+  if (!grid || grid.childElementCount > 0) return
+  Object.entries(THEMES).forEach(([id, t]) => {
+    const btn = document.createElement('button')
+    btn.className = 'theme-swatch' + (id === currentTheme ? ' active' : '')
+    btn.dataset.theme = id
+    btn.style.cssText = 'width:auto;padding:12px 6px 10px;background:var(--g1);border:2px solid var(--border);border-radius:var(--r-lg);display:flex;flex-direction:column;align-items:center;gap:7px;box-shadow:none;cursor:pointer;'
+    btn.innerHTML = `
+      <div class="swatch-dot" style="background:${t.color};"></div>
+      <span class="swatch-label">${t.name}</span>
+    `
+    btn.onclick = () => applyTheme(id)
+    grid.appendChild(btn)
+  })
+}
+
+function initSettings() {
+  if (currentUser) {
+    const uname = currentUser.user_metadata?.username || currentUser.email
+    const el = document.getElementById('param-username')
+    if (el) el.textContent = uname
+    const em = document.getElementById('param-email')
+    if (em) em.textContent = currentUser.email
+  }
+  const isLight = document.body.classList.contains('light')
+  const track = document.getElementById('light-toggle-track')
+  const check = document.getElementById('light-toggle-check')
+  if (track) track.classList.toggle('on', isLight)
+  if (check) check.checked = isLight
+  buildThemePicker()
+}
+
+// Restore on load
+;(function restorePrefs() {
+  if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light')
+    const btn = document.getElementById('theme-btn')
+    if (btn) btn.textContent = '🌙'
+  }
+  applyTheme(currentTheme)
+})()
 
 // Chat
 let chatUsername = null
@@ -808,6 +922,7 @@ window.showSection = function(name) {
     chatOpen = false
   }
   if (name === 'classement' && !classementLoaded) loadClassement()
+  if (name === 'params') initSettings()
 }
 
 document.addEventListener('click', (e) => {

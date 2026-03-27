@@ -37,6 +37,7 @@
       <button class="nav-btn" data-section="calendrier" onclick="showSection('calendrier')">📅 Calendrier</button>
       <button class="nav-btn" data-section="classement" onclick="showSection('classement')">🏆 Classement</button>
       <button class="nav-btn" data-section="chat" onclick="showSection('chat')">💬 Chat <span class="notif-badge" id="chat-badge" style="display:none"></span></button>
+      <button class="nav-btn" data-section="params" onclick="showSection('params')">⚙️ Paramètres</button>
     </nav>
     <div class="sidebar-bottom">
       <div class="user-widget" id="user-info">
@@ -157,6 +158,47 @@
       </div>
     </div>
 
+    <!-- Paramètres -->
+    <div id="section-params" class="section">
+      <h1>⚙️ Paramètres</h1>
+      <div class="params-stack">
+
+        <!-- Compte -->
+        <div class="params-card">
+          <div class="params-card-title">👤 Compte</div>
+          <div class="param-row">
+            <span class="param-label">Pseudo</span>
+            <span class="param-value" id="param-username">—</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Email</span>
+            <span class="param-value" id="param-email">—</span>
+          </div>
+        </div>
+
+        <!-- Apparence -->
+        <div class="params-card">
+          <div class="params-card-title">🌓 Apparence</div>
+          <div class="param-row">
+            <span class="param-label">Mode clair</span>
+            <label class="param-toggle-wrap" for="light-toggle-check">
+              <input type="checkbox" id="light-toggle-check" style="display:none" onchange="window.toggleLightMode(this.checked)">
+              <div class="param-toggle" id="light-toggle-track">
+                <div class="param-toggle-thumb"></div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Thème -->
+        <div class="params-card">
+          <div class="params-card-title">🎨 Couleur du thème</div>
+          <div class="theme-picker-grid" id="theme-picker-grid"></div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- Calendrier -->
     <div id="section-calendrier" class="section">
       <h1>📅 Calendrier</h1>
@@ -219,6 +261,10 @@
     <button class="mobile-nav-btn" data-section="chat" onclick="showSection('chat')">
       <span class="mnb-icon">💬</span>
       <span class="mnb-label">Chat <span class="notif-badge" id="chat-badge-mobile" style="display:none"></span></span>
+    </button>
+    <button class="mobile-nav-btn" data-section="params" onclick="showSection('params')">
+      <span class="mnb-icon">⚙️</span>
+      <span class="mnb-label">Params</span>
     </button>
   </nav>
 
