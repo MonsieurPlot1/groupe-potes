@@ -11,7 +11,15 @@
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body class="dashboard-body">
-    <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
+  <!-- Animated background blobs -->
+  <div class="bg-mesh" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
+  </div>
+
+  <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
 
   <!-- Sidebar -->
   <div class="sidebar">
