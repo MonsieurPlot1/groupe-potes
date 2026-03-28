@@ -411,10 +411,10 @@ function initChat() {
     .on('broadcast', { event: 'typing' }, ({ payload }) => {
       if (payload.username !== chatUsername) {
         const el = document.getElementById('typing-indicator')
-        el.textContent = payload.username + ' est en train d\'écrire...'
+        el.innerHTML = `<span>${payload.username}</span><span class="typing-dots"><span></span><span></span><span></span></span>`
         el.style.opacity = '1'
         clearTimeout(el._timeout)
-        el._timeout = setTimeout(() => el.style.opacity = '0', 2000)
+        el._timeout = setTimeout(() => { el.style.opacity = '0' }, 2000)
       }
     })
     .subscribe()
@@ -679,12 +679,32 @@ window.sendImage = async function() {
 window.showReactionPicker = function(id) {
   const existing = document.getElementById('picker-' + id)
   if (existing) { existing.remove(); return }
+
   const emojis = ['😂', '❤️', '🔥', '👍', '😮', '😢']
   const picker = document.createElement('div')
   picker.className = 'emoji-picker'
   picker.id = 'picker-' + id
   picker.innerHTML = emojis.map(e => `<button onclick="window.toggleReaction('${id}', '${e}')">${e}</button>`).join('')
-  document.getElementById('msg-' + id).appendChild(picker)
+
+  // Attache au body pour échapper aux overflow/stacking contexts du chat
+  document.body.appendChild(picker)
+
+  // Positionne en fixed au-dessus du message
+  const msgEl = document.getElementById('msg-' + id)
+  const wrapper = msgEl?.querySelector('.msg-wrapper')
+  if (wrapper) {
+    const rect = wrapper.getBoundingClientRect()
+    picker.style.position = 'fixed'
+    picker.style.bottom = (window.innerHeight - rect.top + 6) + 'px'
+    picker.style.top = 'auto'
+    if (msgEl.classList.contains('mine')) {
+      picker.style.right = (window.innerWidth - rect.right) + 'px'
+      picker.style.left = 'auto'
+    } else {
+      picker.style.left = rect.left + 'px'
+      picker.style.right = 'auto'
+    }
+  }
 
   setTimeout(() => {
     document.addEventListener('click', function handler(e) {
@@ -697,14 +717,33 @@ window.showReactionPicker = function(id) {
 }
 
 window.toggleReaction = async function(id, emoji) {
-  const { data } = await supabase.from('messages').select('reactions').eq('id', id).single()
-  const reactions = data.reactions || {}
+  // Lit les réactions actuelles depuis le DOM (évite un SELECT Supabase qui peut échouer)
+  const el = document.getElementById('msg-' + id)
+  const reactions = {}
+  if (el) {
+    el.querySelectorAll('.reaction-btn[data-emoji]').forEach(btn => {
+      const users = (btn.title || '').split(', ').filter(Boolean)
+      if (users.length) reactions[btn.dataset.emoji] = users
+    })
+  }
+
   if (!reactions[emoji]) reactions[emoji] = []
   const idx = reactions[emoji].indexOf(chatUsername)
   if (idx > -1) reactions[emoji].splice(idx, 1)
   else reactions[emoji].push(chatUsername)
-  await supabase.from('messages').update({ reactions }).eq('id', id)
+
+  // Mise à jour immédiate de l'UI
+  if (el) {
+    const reactionsEl = el.querySelector('.chat-reactions')
+    const newReactionsHtml = buildReactions({ id, reactions })
+    if (reactionsEl) reactionsEl.outerHTML = newReactionsHtml
+    else el.querySelector('.msg-wrapper')?.insertAdjacentHTML('afterend', newReactionsHtml)
+  }
+
   document.getElementById('picker-' + id)?.remove()
+
+  const { error } = await supabase.from('messages').update({ reactions }).eq('id', id)
+  if (error) console.error('toggleReaction update failed:', error)
 }
 
 window.sendMessage = async function() {
@@ -928,6 +967,25 @@ window.showSection = function(name) {
 document.addEventListener('click', (e) => {
   if (e.target.classList.contains('reaction-btn')) {
     window.toggleReaction(e.target.dataset.id, e.target.dataset.emoji)
+    return
+  }
+
+  // Sur touch : tap sur une bulle = afficher/masquer les actions
+  if (window.matchMedia('(hover: none)').matches) {
+    const bubble = e.target.closest('.chat-bubble')
+    if (bubble) {
+      const wrapper = bubble.closest('.msg-wrapper')
+      if (wrapper) {
+        const isActive = wrapper.classList.contains('active')
+        document.querySelectorAll('.msg-wrapper.active').forEach(w => w.classList.remove('active'))
+        if (!isActive) wrapper.classList.add('active')
+        return
+      }
+    }
+    // Tap ailleurs = fermer toutes les actions (si on n'est pas dans un picker ou une action)
+    if (!e.target.closest('.msg-actions') && !e.target.closest('.emoji-picker')) {
+      document.querySelectorAll('.msg-wrapper.active').forEach(w => w.classList.remove('active'))
+    }
   }
 })
 
