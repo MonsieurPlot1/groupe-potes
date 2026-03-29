@@ -72,16 +72,15 @@ function renderAvatarEl(username, cls = 'user-avatar-circle') {
   if (avatarCache[username] === undefined) {
     avatarCache[username] = null
     const { data } = supabase.storage.from('photos').getPublicUrl('avatars/' + username + '.jpg')
-    fetch(data.publicUrl, { method: 'HEAD' }).then(res => {
-      if (res.ok) {
-        avatarCache[username] = data.publicUrl
-        if (div.isConnected) {
-          const img = document.createElement('img')
-          img.src = data.publicUrl; img.className = 'avatar-img'; img.alt = username
-          div.innerHTML = ''; div.appendChild(img)
-        }
-      }
-    }).catch(() => {})
+    // Charge directement l'image — onerror si elle n'existe pas (évite le HEAD request inutile)
+    const img = document.createElement('img')
+    img.className = 'avatar-img'; img.alt = username
+    img.onload = () => {
+      avatarCache[username] = data.publicUrl
+      if (div.isConnected) { div.innerHTML = ''; div.appendChild(img) }
+    }
+    img.onerror = () => { avatarCache[username] = null }
+    img.src = data.publicUrl
   }
   return div
 }
@@ -113,6 +112,8 @@ let currentUser = null
 let currentPote = null
 let onlineUsersSet = new Set()
 let notifSoundEnabled = localStorage.getItem('notif-sound') !== 'off'
+const profileStatusCache = {} // username → { status, status_emoji }
+const photosListCache = {} // pote → { ts, urls }
 
 function playNotifSound() {
   if (!notifSoundEnabled) return
@@ -164,10 +165,15 @@ async function init() {
       const users = []
       Object.values(state).forEach(presences => presences.forEach(p => users.push(p.username)))
       onlineUsersSet = new Set(users)
-      // Fetch statuts pour tous les users en ligne
-      supabase.from('profiles').select('username, status, status_emoji').in('username', users).then(({ data: profs }) => {
+      // Fetch statuts uniquement pour les users pas encore en cache
+      const uncached = users.filter(u => !profileStatusCache[u])
+      const fetchProfiles = uncached.length
+        ? supabase.from('profiles').select('username, status, status_emoji').in('username', uncached)
+        : Promise.resolve({ data: [] })
+      fetchProfiles.then(({ data: profs }) => {
+        if (profs) profs.forEach(p => { profileStatusCache[p.username] = p })
         const statusMap = {}
-        if (profs) profs.forEach(p => statusMap[p.username] = p)
+        users.forEach(u => { if (profileStatusCache[u]) statusMap[u] = profileStatusCache[u] })
         onlineDiv.innerHTML = ''
         users.forEach(u => {
           const div = document.createElement('div')
@@ -203,15 +209,14 @@ async function init() {
 }
 
 async function loadHomeStats() {
-  const { count: msgCount } = await supabase.from('messages').select('*', { count: 'exact', head: true })
-  document.getElementById('stat-messages').textContent = msgCount || 0
-
   const potes = ['renan','noe','cesar','erwan','wili','raphaelle','lilou','gwendal','nicolas']
-  const counts = await Promise.all(potes.map(async pote => {
-    const { data } = await supabase.storage.from('photos').list(pote, { limit: 100 })
-    return data ? data.length : 0
-  }))
-  document.getElementById('stat-photos').textContent = counts.reduce((a, b) => a + b, 0)
+  const [msgRes, ...photoResults] = await Promise.all([
+    supabase.from('messages').select('*', { count: 'exact', head: true }),
+    ...potes.map(pote => supabase.storage.from('photos').list(pote, { limit: 100 }))
+  ])
+  document.getElementById('stat-messages').textContent = msgRes.count || 0
+  const total = photoResults.reduce((sum, { data }) => sum + (data ? data.length : 0), 0)
+  document.getElementById('stat-photos').textContent = total
 }
 
 async function loadHomeMessages() {
@@ -264,17 +269,29 @@ window.closePote = function() {
   document.getElementById('pote-view').style.display = 'none'
 }
 
-async function loadPhotos(pote) {
-  const { data, error } = await supabase.storage.from('photos').list(pote, { limit: 100 })
+async function loadPhotos(pote, forceRefresh = false) {
   const grid = document.getElementById('photo-grid')
   grid.innerHTML = ''
-  if (error || !data?.length) {
-    grid.innerHTML = '<p style="color:#aaa">Aucune photo pour l\'instant...</p>'
-    return
+
+  // Cache 60 secondes pour la liste des photos
+  const PHOTOS_TTL = 60 * 1000
+  let urls
+  const cached = photosListCache[pote]
+  if (!forceRefresh && cached && Date.now() - cached.ts < PHOTOS_TTL) {
+    urls = cached.urls
+  } else {
+    const { data, error } = await supabase.storage.from('photos').list(pote, { limit: 100 })
+    if (error || !data?.length) {
+      grid.innerHTML = '<p style="color:#aaa">Aucune photo pour l\'instant...</p>'
+      return
+    }
+    urls = data
+      .filter(f => f.name !== '.emptyFolderPlaceholder')
+      .map(file => supabase.storage.from('photos').getPublicUrl(pote + '/' + file.name).data.publicUrl)
+    photosListCache[pote] = { ts: Date.now(), urls }
   }
-  const urls = data
-    .filter(f => f.name !== '.emptyFolderPlaceholder')
-    .map(file => supabase.storage.from('photos').getPublicUrl(pote + '/' + file.name).data.publicUrl)
+
+  if (!urls.length) { grid.innerHTML = '<p style="color:#aaa">Aucune photo pour l\'instant...</p>'; return }
 
   // Fetch likes
   const username = currentUser?.user_metadata?.username || currentUser?.email
@@ -289,7 +306,7 @@ async function loadPhotos(pote) {
     const wrap = document.createElement('div')
     wrap.className = 'photo-grid-item'
     const img = document.createElement('img')
-    img.src = url; img.alt = ''
+    img.src = url; img.alt = ''; img.loading = 'lazy'
     img.onclick = () => window.openLightbox(url, urls)
     const myLike = (likeMap[url] || []).includes(username)
     const count = (likeMap[url] || []).length
@@ -365,6 +382,7 @@ async function uploadFileList(files) {
     msg.style.color = 'var(--success)'; msg.textContent = '✅ ' + files.length + ' photo(s) envoyée(s) !'
     setTimeout(() => { msg.textContent = '' }, 3000)
   }
+  delete photosListCache[currentPote]
   loadPhotos(currentPote)
 }
 
@@ -588,6 +606,8 @@ function initChat() {
   const channel = supabase
     .channel('chat-room', { config: { broadcast: { self: true } } })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+      // Ignore si ce message est déjà dans le DOM (ajouté de façon optimiste)
+      if (document.getElementById('msg-' + payload.new.id)) return
       appendMessage(payload.new)
     })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
@@ -1001,17 +1021,32 @@ window.sendMessage = async function() {
     msg.reply_preview = replyingTo.username + ': ' + replyingTo.content.substring(0, 60)
     cancelReply()
   }
-  await supabase.from('messages').insert(msg)
+
+  // UI optimiste : affiche le message immédiatement sans attendre Supabase
+  const tempId = 'temp-' + Date.now()
+  const optimisticMsg = { ...msg, id: tempId, created_at: new Date().toISOString(), reactions: {} }
+  appendMessage(optimisticMsg)
+
+  const { data, error } = await supabase.from('messages').insert(msg).select().single()
+  // Remplace le message temporaire par le vrai id
+  const tempEl = document.getElementById('msg-' + tempId)
+  if (tempEl) {
+    if (data) tempEl.id = 'msg-' + data.id
+    else if (error) tempEl.remove() // échec : on retire le message optimiste
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('chat-input')
   if (input) {
+    let lastTypingSent = 0
     input.addEventListener('input', () => {
       if (!typingChannel || !chatUsername) return
-      clearTimeout(typingTimeout)
+      const now = Date.now()
+      // Throttle : envoie au maximum toutes les 1500ms
+      if (now - lastTypingSent < 1500) return
+      lastTypingSent = now
       typingChannel.send({ type: 'broadcast', event: 'typing', payload: { username: chatUsername } })
-      typingTimeout = setTimeout(() => {}, 1500)
     })
   }
 })
@@ -1771,27 +1806,44 @@ const WMO = {
 async function loadWeather() {
   const el = document.getElementById('weather-content')
   if (!el) return
+
+  // Cache 10 minutes dans localStorage
+  const WEATHER_TTL = 10 * 60 * 1000
+  const cached = (() => {
+    try {
+      const c = JSON.parse(localStorage.getItem('weather-cache') || 'null')
+      if (c && Date.now() - c.ts < WEATHER_TTL) return c.html
+    } catch(e) {}
+    return null
+  })()
+  if (cached) { el.innerHTML = cached; return }
+
   try {
     const pos = await new Promise((res, rej) =>
       navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
     ).catch(() => null)
     const lat = pos?.coords?.latitude ?? 48.85
     const lon = pos?.coords?.longitude ?? 2.35
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode&timezone=auto`
-    const r = await fetch(url)
-    const d = await r.json()
+
+    // Fetch météo + géocode en parallèle
+    const [weatherRes, geoRes] = await Promise.allSettled([
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode&timezone=auto`).then(r => r.json()),
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`).then(r => r.json())
+    ])
+
+    if (weatherRes.status !== 'fulfilled') throw new Error('météo indispo')
+    const d = weatherRes.value
     const temp = Math.round(d.current.temperature_2m)
     const code = d.current.weathercode
     const desc = WMO[code] || '🌡️ Inconnu'
     const [emoji, ...rest] = desc.split(' ')
-    // Reverse geocode city
     let city = ''
-    try {
-      const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
-      const gd = await geo.json()
+    if (geoRes.status === 'fulfilled') {
+      const gd = geoRes.value
       city = gd.address?.city || gd.address?.town || gd.address?.village || ''
-    } catch(e) {}
-    el.innerHTML = `
+    }
+
+    const html = `
       <div class="weather-main">
         <div class="weather-emoji">${emoji}</div>
         <div>
@@ -1801,6 +1853,8 @@ async function loadWeather() {
       </div>
       ${city ? `<div class="weather-city">📍 ${escapeHtml(city)}</div>` : ''}
     `
+    el.innerHTML = html
+    try { localStorage.setItem('weather-cache', JSON.stringify({ ts: Date.now(), html })) } catch(e) {}
   } catch(e) {
     el.innerHTML = '<div class="weather-loading">Météo indisponible</div>'
   }
