@@ -112,6 +112,24 @@ async function compressImage(file, maxWidth = 1600, quality = 0.82) {
 let currentUser = null
 let currentPote = null
 let onlineUsersSet = new Set()
+let notifSoundEnabled = localStorage.getItem('notif-sound') !== 'off'
+
+function playNotifSound() {
+  if (!notifSoundEnabled) return
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const o = ctx.createOscillator()
+    const g = ctx.createGain()
+    o.connect(g); g.connect(ctx.destination)
+    o.type = 'sine'
+    o.frequency.setValueAtTime(880, ctx.currentTime)
+    o.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12)
+    g.gain.setValueAtTime(0.12, ctx.currentTime)
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.32)
+    o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.32)
+    setTimeout(() => ctx.close(), 500)
+  } catch(e) {}
+}
 
 async function init() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -127,6 +145,8 @@ async function init() {
   // Stats
   loadHomeStats()
   loadHomeMessages()
+  loadWeather()
+  loadActivity()
 
   // Init profil (crée l'entrée à la première connexion avec la vraie date de compte, ne fait rien si existe déjà)
   supabase.from('profiles').upsert(
@@ -144,18 +164,35 @@ async function init() {
       const users = []
       Object.values(state).forEach(presences => presences.forEach(p => users.push(p.username)))
       onlineUsersSet = new Set(users)
-      users.forEach(u => {
-        const div = document.createElement('div')
-        div.className = 'online-user'
-        div.style.cursor = 'pointer'
-        div.onclick = () => window.openProfile(u)
-        const avEl = renderAvatarEl(u, 'online-avatar')
-        const nameEl = document.createElement('span')
-        nameEl.textContent = u
-        const dotEl = document.createElement('div')
-        dotEl.className = 'online-dot'; dotEl.style.marginLeft = 'auto'
-        div.appendChild(avEl); div.appendChild(nameEl); div.appendChild(dotEl)
-        onlineDiv.appendChild(div)
+      // Fetch statuts pour tous les users en ligne
+      supabase.from('profiles').select('username, status, status_emoji').in('username', users).then(({ data: profs }) => {
+        const statusMap = {}
+        if (profs) profs.forEach(p => statusMap[p.username] = p)
+        onlineDiv.innerHTML = ''
+        users.forEach(u => {
+          const div = document.createElement('div')
+          div.className = 'online-user'
+          div.style.cursor = 'pointer'
+          div.onclick = () => window.openProfile(u)
+          const avEl = renderAvatarEl(u, 'online-avatar')
+          const nameWrap = document.createElement('div')
+          nameWrap.style.cssText = 'flex:1;min-width:0'
+          const nameEl = document.createElement('span')
+          nameEl.style.cssText = 'display:block;font-weight:500'
+          nameEl.textContent = u
+          nameWrap.appendChild(nameEl)
+          const prof = statusMap[u]
+          if (prof?.status) {
+            const statusEl = document.createElement('span')
+            statusEl.className = 'online-user-status'
+            statusEl.textContent = (prof.status_emoji ? prof.status_emoji + ' ' : '') + prof.status
+            nameWrap.appendChild(statusEl)
+          }
+          const dotEl = document.createElement('div')
+          dotEl.className = 'online-dot'; dotEl.style.marginLeft = 'auto'
+          div.appendChild(avEl); div.appendChild(nameWrap); div.appendChild(dotEl)
+          onlineDiv.appendChild(div)
+        })
       })
       document.getElementById('stat-online').textContent = users.length
       document.getElementById('offline-count').textContent = (9 - users.length) + ' pote(s) hors ligne'
@@ -210,6 +247,7 @@ window.showSection = function(name) {
   const mainEl = document.querySelector('.main')
   if (mainEl) mainEl.scrollTop = 0
   if (name === 'params') { loadMicList(); loadParamProfile() }
+  if (name === 'calendrier') initCalendar()
 }
 
 window.openPote = function(pote) {
@@ -230,35 +268,103 @@ async function loadPhotos(pote) {
   const { data, error } = await supabase.storage.from('photos').list(pote, { limit: 100 })
   const grid = document.getElementById('photo-grid')
   grid.innerHTML = ''
-  if (error || !data.length) {
+  if (error || !data?.length) {
     grid.innerHTML = '<p style="color:#aaa">Aucune photo pour l\'instant...</p>'
     return
   }
-  const urls = data.map(file => supabase.storage.from('photos').getPublicUrl(pote + '/' + file.name).data.publicUrl)
+  const urls = data
+    .filter(f => f.name !== '.emptyFolderPlaceholder')
+    .map(file => supabase.storage.from('photos').getPublicUrl(pote + '/' + file.name).data.publicUrl)
+
+  // Fetch likes
+  const username = currentUser?.user_metadata?.username || currentUser?.email
+  const { data: likes } = await supabase.from('photo_likes').select('photo_url, username').in('photo_url', urls)
+  const likeMap = {}
+  if (likes) likes.forEach(l => {
+    likeMap[l.photo_url] = likeMap[l.photo_url] || []
+    likeMap[l.photo_url].push(l.username)
+  })
+
   urls.forEach(url => {
+    const wrap = document.createElement('div')
+    wrap.className = 'photo-grid-item'
     const img = document.createElement('img')
-    img.src = url
+    img.src = url; img.alt = ''
     img.onclick = () => window.openLightbox(url, urls)
-    grid.appendChild(img)
+    const myLike = (likeMap[url] || []).includes(username)
+    const count = (likeMap[url] || []).length
+    const likeBtn = document.createElement('button')
+    likeBtn.className = 'photo-like-btn' + (myLike ? ' liked' : '')
+    likeBtn.innerHTML = `<span class="like-heart">${myLike ? '❤️' : '🤍'}</span><span class="like-count">${count || ''}</span>`
+    likeBtn.onclick = (e) => { e.stopPropagation(); window.togglePhotoLike(url, likeBtn, username) }
+    wrap.appendChild(img); wrap.appendChild(likeBtn)
+    grid.appendChild(wrap)
   })
 }
 
-window.uploadPhotos = async function() {
-  const input = document.getElementById('photo-input')
-  const msg = document.getElementById('upload-message')
-  const files = input.files
-  if (!files.length) { msg.style.color = '#f87171'; msg.textContent = 'Sélectionne au moins une photo !'; return }
-  msg.style.color = '#a78bfa'
-  msg.textContent = 'Upload en cours...'
-  for (const file of files) {
-    const fileName = currentPote + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const compressed = await compressImage(file)
-    const { error } = await supabase.storage.from('photos').upload(fileName, compressed)
-    if (error) { msg.style.color = '#f87171'; msg.textContent = 'Erreur : ' + error.message; return }
+window.togglePhotoLike = async function(url, btn, username) {
+  const isLiked = btn.classList.contains('liked')
+  if (isLiked) {
+    await supabase.from('photo_likes').delete().eq('photo_url', url).eq('username', username)
+  } else {
+    await supabase.from('photo_likes').insert({ photo_url: url, username })
   }
-  msg.style.color = '#4ade80'
-  msg.textContent = 'Photos envoyées ! ✅'
+  const { data: likes } = await supabase.from('photo_likes').select('username').eq('photo_url', url)
+  const count = likes?.length || 0
+  const nowLiked = !isLiked
+  btn.classList.toggle('liked', nowLiked)
+  btn.innerHTML = `<span class="like-heart">${nowLiked ? '❤️' : '🤍'}</span><span class="like-count">${count || ''}</span>`
+}
+
+window.handleDrop = function(e) {
+  e.preventDefault()
+  document.getElementById('upload-zone')?.classList.remove('dragover')
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
+  if (files.length) uploadFileList(files)
+}
+
+window.uploadPhotos = function() {
+  const input = document.getElementById('photo-input')
+  if (!input.files.length) return
+  uploadFileList(Array.from(input.files))
   input.value = ''
+}
+
+async function uploadFileList(files) {
+  const progressList = document.getElementById('upload-progress-list')
+  const msg = document.getElementById('upload-message')
+  msg.textContent = ''
+  progressList.innerHTML = ''
+
+  const items = files.map((file, i) => {
+    const item = document.createElement('div')
+    item.className = 'upload-progress-item'
+    item.innerHTML = `<div class="upload-progress-name">${escapeHtml(file.name)}</div>
+      <div class="upload-progress-bar-wrap"><div class="upload-progress-bar" id="upbar-${i}" style="width:0%"></div></div>`
+    progressList.appendChild(item)
+    return item
+  })
+
+  let errors = 0
+  for (let i = 0; i < files.length; i++) {
+    const bar = document.getElementById('upbar-' + i)
+    if (bar) bar.style.width = '30%'
+    const fileName = currentPote + '/' + Date.now() + '_' + files[i].name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const compressed = await compressImage(files[i])
+    if (bar) bar.style.width = '70%'
+    const { error } = await supabase.storage.from('photos').upload(fileName, compressed)
+    if (bar) bar.style.width = error ? '100%' : '100%'
+    if (bar) bar.style.background = error ? '#f87171' : 'linear-gradient(90deg,var(--accent-2),var(--accent))'
+    if (error) errors++
+  }
+
+  setTimeout(() => { progressList.innerHTML = '' }, 1800)
+  if (errors) {
+    msg.style.color = 'var(--danger)'; msg.textContent = errors + ' erreur(s) d\'upload'
+  } else {
+    msg.style.color = 'var(--success)'; msg.textContent = '✅ ' + files.length + ' photo(s) envoyée(s) !'
+    setTimeout(() => { msg.textContent = '' }, 3000)
+  }
   loadPhotos(currentPote)
 }
 
@@ -511,6 +617,14 @@ function initChat() {
         el.style.opacity = '1'
         clearTimeout(el._timeout)
         el._timeout = setTimeout(() => { el.style.opacity = '0' }, 2000)
+        // Pulse sur le bouton nav Chat quand on n'est pas dans le chat
+        if (!chatOpen) {
+          document.querySelectorAll('[data-section="chat"]').forEach(btn => {
+            btn.classList.add('typing-pulse')
+            clearTimeout(btn._typingPulse)
+            btn._typingPulse = setTimeout(() => btn.classList.remove('typing-pulse'), 2500)
+          })
+        }
       }
     })
     .subscribe()
@@ -546,6 +660,7 @@ async function loadMessages() {
   chatInitialized = true
 
   setupLoadMoreObserver()
+  loadPinnedBar()
 }
 
 function setupLoadMoreObserver() {
@@ -619,6 +734,7 @@ function setupLoadMoreObserver() {
             <div class="msg-actions" id="actions-${msg.id}">
               <button onclick="startReply('${msg.id}', '${safeContentB}', '${escapeHtml(msg.username)}')">↩️</button>
               <button onclick="showReactionPicker('${msg.id}')">😄</button>
+              <button onclick="window.togglePin('${msg.id}', '${escapeHtml((msg.content||'').substring(0,60))}')">📌</button>
               ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${safeContentB}')">✏️</button>` : ''}
               ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
             </div>
@@ -698,6 +814,7 @@ function appendMessage(msg) {
         <div class="msg-actions" id="actions-${msg.id}">
           <button onclick="startReply('${msg.id}', '${replyAttr}', '${escapeHtml(msg.username)}')">↩️</button>
           <button onclick="showReactionPicker('${msg.id}')">😄</button>
+          <button onclick="window.togglePin('${msg.id}', '${escapeHtml(safeContent.substring(0,60))}')">📌</button>
           ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${replyAttr}')">✏️</button>` : ''}
           ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
         </div>
@@ -709,10 +826,11 @@ function appendMessage(msg) {
   container.appendChild(div)
   container.scrollTop = container.scrollHeight
 
-  // Badge de notif si on est ailleurs
+  // Badge de notif + son si on est ailleurs
   if (chatInitialized && !chatOpen && !isMine) {
     unreadCount++
     updateBadge()
+    playNotifSound()
   }
 }
 
@@ -1478,6 +1596,22 @@ window.openProfile = async function(username) {
   const bio = profile?.bio || ''
   bioView.textContent = bio || (isMine ? '✏️ Clique pour ajouter une description' : 'Aucune description')
 
+  // Statut personnalisé
+  const customStatusEl = document.getElementById('profile-custom-status')
+  if (profile?.status) {
+    customStatusEl.textContent = (profile.status_emoji ? profile.status_emoji + ' ' : '') + profile.status
+    customStatusEl.style.display = 'block'
+  } else {
+    customStatusEl.style.display = 'none'
+  }
+
+  // Badges
+  let badgesHtml = ''
+  const sinceDate = isMine ? currentUser?.created_at : profile?.joined_at
+  if (sinceDate && (Date.now() - new Date(sinceDate).getTime()) < 30 * 24 * 3600 * 1000) {
+    badgesHtml += '<span class="profile-badge profile-badge--new">🌱 Nouveau</span>'
+  }
+
   if (isMine) {
     const inp = document.getElementById('profile-bio-input')
     inp.value = bio
@@ -1495,8 +1629,20 @@ window.openProfile = async function(username) {
     supabase.from('messages').select('*', { count: 'exact', head: true }).eq('username', username),
     supabase.storage.from('photos').list(username, { limit: 1000 })
   ])
-  document.getElementById('profile-msgs').textContent = msgRes.count ?? 0
+  const msgCount = msgRes.count ?? 0
+  document.getElementById('profile-msgs').textContent = msgCount
   document.getElementById('profile-photos').textContent = photoRes.data?.length ?? 0
+
+  // Badge actif (> 100 messages)
+  if (msgCount >= 100) badgesHtml += '<span class="profile-badge profile-badge--active">⭐ Actif</span>'
+  if (badgesHtml) {
+    const existingBadges = document.querySelector('.profile-badges')
+    if (existingBadges) existingBadges.remove()
+    const badgesEl = document.createElement('div')
+    badgesEl.className = 'profile-badges'
+    badgesEl.innerHTML = badgesHtml
+    document.getElementById('profile-username-txt').insertAdjacentElement('afterend', badgesEl)
+  }
 }
 
 window.closeProfile = function() {
@@ -1523,10 +1669,14 @@ window.saveProfileBio = async function() {
 async function loadParamProfile() {
   const username = currentUser?.user_metadata?.username || currentUser?.email
   if (!username) return
-  const { data: profile } = await supabase.from('profiles').select('bio').eq('username', username).maybeSingle()
+  const { data: profile } = await supabase.from('profiles').select('bio, status, status_emoji').eq('username', username).maybeSingle()
   const bio = profile?.bio || ''
   const inp = document.getElementById('param-bio-input')
   if (inp) { inp.value = bio; document.getElementById('param-bio-count').textContent = bio.length + '/200' }
+  const emojiInp = document.getElementById('param-status-emoji')
+  const textInp = document.getElementById('param-status-text')
+  if (emojiInp) emojiInp.value = profile?.status_emoji || ''
+  if (textInp) textInp.value = profile?.status || ''
 }
 
 window.saveParamBio = async function() {
@@ -1542,3 +1692,215 @@ window.saveParamBio = async function() {
     document.getElementById('param-bio-count').textContent = bio.length + '/200'
   }
 }
+
+window.saveStatus = async function() {
+  const username = currentUser?.user_metadata?.username || currentUser?.email
+  const status_emoji = document.getElementById('param-status-emoji').value.trim()
+  const status = document.getElementById('param-status-text').value.trim()
+  const { error } = await supabase.from('profiles').upsert(
+    { username, status, status_emoji, updated_at: new Date().toISOString() },
+    { onConflict: 'username' }
+  )
+  if (error) showParamToast('Erreur : ' + error.message, true)
+  else showParamToast('Statut mis à jour ✓')
+}
+
+// ── Météo ─────────────────────────────────────────────
+const WMO = {
+  0:'☀️ Ensoleillé', 1:'🌤️ Peu nuageux', 2:'⛅ Nuageux', 3:'☁️ Couvert',
+  45:'🌫️ Brouillard', 48:'🌫️ Brouillard', 51:'🌦️ Bruine', 53:'🌦️ Bruine',
+  55:'🌧️ Bruine dense', 61:'🌧️ Pluie', 63:'🌧️ Pluie', 65:'🌧️ Pluie forte',
+  71:'❄️ Neige', 73:'❄️ Neige', 75:'❄️ Neige forte', 80:'🌧️ Averses',
+  81:'🌧️ Averses', 82:'⛈️ Averses violentes', 95:'⛈️ Orage', 96:'⛈️ Orage', 99:'⛈️ Orage'
+}
+
+async function loadWeather() {
+  const el = document.getElementById('weather-content')
+  if (!el) return
+  try {
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
+    ).catch(() => null)
+    const lat = pos?.coords?.latitude ?? 48.85
+    const lon = pos?.coords?.longitude ?? 2.35
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode&timezone=auto`
+    const r = await fetch(url)
+    const d = await r.json()
+    const temp = Math.round(d.current.temperature_2m)
+    const code = d.current.weathercode
+    const desc = WMO[code] || '🌡️ Inconnu'
+    const [emoji, ...rest] = desc.split(' ')
+    // Reverse geocode city
+    let city = ''
+    try {
+      const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+      const gd = await geo.json()
+      city = gd.address?.city || gd.address?.town || gd.address?.village || ''
+    } catch(e) {}
+    el.innerHTML = `
+      <div class="weather-main">
+        <div class="weather-emoji">${emoji}</div>
+        <div>
+          <div class="weather-temp">${temp}°C</div>
+          <div class="weather-desc">${rest.join(' ')}</div>
+        </div>
+      </div>
+      ${city ? `<div class="weather-city">📍 ${escapeHtml(city)}</div>` : ''}
+    `
+  } catch(e) {
+    el.innerHTML = '<div class="weather-loading">Météo indisponible</div>'
+  }
+}
+
+// ── Activité récente ──────────────────────────────────
+async function loadActivity() {
+  const container = document.getElementById('home-activity')
+  if (!container) return
+  const { data } = await supabase.from('messages').select('username, created_at, content, image_url')
+    .order('created_at', { ascending: false }).limit(8)
+  if (!data?.length) { container.innerHTML = '<p style="color:var(--text-muted);font-size:0.84rem">Aucune activité</p>'; return }
+  container.innerHTML = ''
+  // Déduplique par username (garder le plus récent)
+  const seen = new Set()
+  data.filter(m => { if (seen.has(m.username)) return false; seen.add(m.username); return true }).forEach(m => {
+    const ago = timeAgo(m.created_at)
+    const div = document.createElement('div')
+    div.className = 'activity-item'
+    const av = renderAvatarEl(m.username, 'online-avatar activity-av')
+    const text = document.createElement('div')
+    text.className = 'activity-text'
+    text.innerHTML = `<strong>${escapeHtml(m.username)}</strong> ${m.image_url ? 'a envoyé une photo' : 'a écrit un message'}`
+    const time = document.createElement('span')
+    time.className = 'activity-time'; time.textContent = ago
+    div.appendChild(av); div.appendChild(text); div.appendChild(time)
+    container.appendChild(div)
+  })
+}
+
+function timeAgo(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (diff < 60) return 'à l\'instant'
+  if (diff < 3600) return Math.floor(diff / 60) + ' min'
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h'
+  return Math.floor(diff / 86400) + 'j'
+}
+
+// ── Messages épinglés ─────────────────────────────────
+async function loadPinnedBar() {
+  const { data } = await supabase.from('messages').select('id, content, username')
+    .eq('pinned', true).order('updated_at', { ascending: false }).limit(1)
+  const bar = document.getElementById('pinned-bar')
+  const textEl = document.getElementById('pinned-bar-text')
+  if (!bar || !textEl) return
+  if (data?.length) {
+    textEl.textContent = data[0].username + ' : ' + (data[0].content || '📷 Image')
+    bar.style.display = 'flex'
+  } else {
+    bar.style.display = 'none'
+  }
+}
+
+window.togglePin = async function(id, preview) {
+  const { data: msg } = await supabase.from('messages').select('pinned').eq('id', id).single()
+  const newPinned = !msg?.pinned
+  await supabase.from('messages').update({ pinned: newPinned }).eq('id', id)
+  if (newPinned) {
+    const bar = document.getElementById('pinned-bar')
+    const textEl = document.getElementById('pinned-bar-text')
+    if (bar && textEl) {
+      const username = (currentUser?.user_metadata?.username || currentUser?.email)
+      textEl.textContent = username + ' : ' + (preview || '📷 Image')
+      bar.style.display = 'flex'
+    }
+  } else {
+    loadPinnedBar()
+  }
+}
+
+// ── Calendrier ────────────────────────────────────────
+let calYear = new Date().getFullYear()
+let calMonth = new Date().getMonth()
+let calEvents = []
+
+async function initCalendar() {
+  const { data } = await supabase.from('events').select('*').order('event_date')
+  calEvents = data || []
+  renderCalendar()
+}
+
+function renderCalendar() {
+  const titleEl = document.getElementById('cal-month-title')
+  const grid = document.getElementById('cal-grid')
+  if (!titleEl || !grid) return
+  titleEl.textContent = new Date(calYear, calMonth).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  const firstDay = (new Date(calYear, calMonth, 1).getDay() + 6) % 7 // lundi = 0
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
+  const today = new Date()
+  grid.innerHTML = ''
+  // Blanks
+  for (let i = 0; i < firstDay; i++) {
+    const blank = document.createElement('div')
+    blank.className = 'cal-day empty'
+    grid.appendChild(blank)
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement('div')
+    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear()
+    cell.className = 'cal-day' + (isToday ? ' today' : '')
+    cell.onclick = () => window.openAddEvent(dateStr)
+    const num = document.createElement('div')
+    num.className = 'cal-day-num'; num.textContent = d
+    cell.appendChild(num)
+    calEvents.filter(e => e.event_date === dateStr).forEach(ev => {
+      const dot = document.createElement('div')
+      dot.className = 'cal-event-dot'
+      dot.textContent = (ev.event_time ? ev.event_time.substring(0,5) + ' ' : '') + ev.title
+      dot.title = ev.description || ev.title
+      dot.onclick = (e) => { e.stopPropagation(); window.deleteEvent(ev.id, cell, dot) }
+      cell.appendChild(dot)
+    })
+    grid.appendChild(cell)
+  }
+}
+
+window.calPrev = function() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear-- } renderCalendar() }
+window.calNext = function() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++ } renderCalendar() }
+
+window.openAddEvent = function(dateStr = '') {
+  document.getElementById('event-modal').classList.add('open')
+  document.getElementById('event-title-input').value = ''
+  document.getElementById('event-date-input').value = dateStr
+  document.getElementById('event-time-input').value = ''
+  document.getElementById('event-desc-input').value = ''
+  setTimeout(() => document.getElementById('event-title-input').focus(), 50)
+}
+window.closeAddEvent = function() { document.getElementById('event-modal').classList.remove('open') }
+
+window.saveEvent = async function() {
+  const title = document.getElementById('event-title-input').value.trim()
+  const date = document.getElementById('event-date-input').value
+  if (!title || !date) return
+  const username = currentUser?.user_metadata?.username || currentUser?.email
+  const { data, error } = await supabase.from('events').insert({
+    title, event_date: date,
+    event_time: document.getElementById('event-time-input').value || null,
+    description: document.getElementById('event-desc-input').value.trim(),
+    created_by: username
+  }).select().single()
+  if (!error && data) {
+    calEvents.push(data); renderCalendar()
+    window.closeAddEvent()
+  }
+}
+
+window.deleteEvent = async function(id, cell, dot) {
+  if (!confirm('Supprimer cet événement ?')) return
+  await supabase.from('events').delete().eq('id', id)
+  calEvents = calEvents.filter(e => e.id !== id)
+  dot.remove()
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') window.closeAddEvent()
+}, true)

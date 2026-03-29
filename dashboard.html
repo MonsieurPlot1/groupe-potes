@@ -93,6 +93,20 @@
           </div>
         </div>
 
+        <!-- Météo -->
+        <div class="home-card weather-card" id="weather-card">
+          <div class="home-card-title">🌤️ Météo</div>
+          <div id="weather-content" class="weather-content">
+            <div class="weather-loading">Chargement...</div>
+          </div>
+        </div>
+
+        <!-- Activité récente -->
+        <div class="home-card activity-card">
+          <div class="home-card-title">⚡ Activité récente</div>
+          <div id="home-activity"></div>
+        </div>
+
         <!-- Derniers messages -->
         <div class="home-card messages-card">
           <div class="home-card-title">💬 Derniers messages</div>
@@ -149,11 +163,19 @@
       <div id="pote-view" style="display:none">
         <button class="back-btn" onclick="closePote()">← Retour</button>
         <h2 id="pote-title"></h2>
-        <div class="upload-box">
-          <input type="file" id="photo-input" accept="image/*" multiple />
-          <button onclick="uploadPhotos()">⬆️ Envoyer des photos</button>
-          <p id="upload-message"></p>
+        <div class="upload-zone" id="upload-zone"
+          ondragover="event.preventDefault(); this.classList.add('dragover')"
+          ondragleave="this.classList.remove('dragover')"
+          ondrop="window.handleDrop(event)">
+          <div class="upload-zone-inner">
+            <div class="upload-zone-icon">📤</div>
+            <div class="upload-zone-text">Glisse tes photos ici ou <label class="upload-zone-link" for="photo-input">choisis des fichiers</label></div>
+            <div class="upload-zone-hint">JPG, PNG, WEBP · Plusieurs à la fois OK</div>
+          </div>
+          <input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="window.uploadPhotos()" />
         </div>
+        <div id="upload-progress-list" class="upload-progress-list"></div>
+        <p id="upload-message"></p>
         <div id="photo-grid" class="photo-grid"></div>
       </div>
     </div>
@@ -184,6 +206,14 @@
           <div class="param-row">
             <span class="param-label">Membre depuis</span>
             <span class="param-value" id="param-since">—</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Statut</span>
+            <div class="param-status-wrap">
+              <input id="param-status-emoji" class="param-status-emoji" maxlength="2" placeholder="😊" />
+              <input id="param-status-text" class="param-status-text" maxlength="60" placeholder="Mon statut..." onkeydown="if(event.key==='Enter') window.saveStatus()" />
+              <button class="param-action-btn" onclick="window.saveStatus()">OK</button>
+            </div>
           </div>
           <div class="param-row param-row--col">
             <div style="display:flex;justify-content:space-between;align-items:center">
@@ -268,7 +298,31 @@
     <!-- Calendrier -->
     <div id="section-calendrier" class="section">
       <h1>📅 Calendrier</h1>
-      <p>Bientôt disponible...</p>
+      <div class="cal-toolbar">
+        <button class="cal-nav-btn" onclick="window.calPrev()">❮</button>
+        <div class="cal-month-title" id="cal-month-title"></div>
+        <button class="cal-nav-btn" onclick="window.calNext()">❯</button>
+        <button class="cal-add-btn" onclick="window.openAddEvent()">+ Événement</button>
+      </div>
+      <div class="cal-weekdays">
+        <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <!-- Modal ajout événement -->
+    <div id="event-modal" class="event-modal" onclick="window.closeAddEvent()">
+      <div class="event-modal-card" onclick="event.stopPropagation()">
+        <div class="event-modal-title">Nouvel événement</div>
+        <input id="event-title-input" class="event-input" placeholder="Titre..." maxlength="80" />
+        <input id="event-date-input" class="event-input" type="date" />
+        <input id="event-time-input" class="event-input" type="time" />
+        <textarea id="event-desc-input" class="event-input event-textarea" placeholder="Description (optionnel)" maxlength="300"></textarea>
+        <div class="event-modal-actions">
+          <button class="event-cancel-btn" onclick="window.closeAddEvent()">Annuler</button>
+          <button class="event-save-btn" onclick="window.saveEvent()">Créer</button>
+        </div>
+      </div>
     </div>
 
 
@@ -313,10 +367,14 @@
     </div>
 
     <!-- Chat -->
-    <!-- Chat -->
     <div id="section-chat" class="section">
       <h1>💬 Chat</h1>
       <div class="chat-box">
+        <div id="pinned-bar" class="pinned-bar" style="display:none">
+          <span class="pinned-icon">📌</span>
+          <span id="pinned-bar-text" class="pinned-bar-text"></span>
+          <button class="pinned-bar-close" onclick="document.getElementById('pinned-bar').style.display='none'">✕</button>
+        </div>
         <div id="chat-messages"></div>
         <div id="typing-indicator"></div>
         <div id="reply-box" style="display:none">
@@ -391,6 +449,7 @@
           <div class="profile-name-block">
             <div class="profile-username-txt" id="profile-username-txt"></div>
             <div class="profile-status-txt" id="profile-status-txt"></div>
+            <div class="profile-custom-status" id="profile-custom-status" style="display:none"></div>
           </div>
         </div>
         <div class="profile-section-label">À propos</div>

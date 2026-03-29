@@ -1718,6 +1718,232 @@ body.light .param-toast {
 
 
 /* =====================================================
+   MÉTÉO
+   ===================================================== */
+.weather-content { display: flex; flex-direction: column; gap: 6px; }
+.weather-loading { color: var(--text-muted); font-size: 0.88rem; }
+.weather-main { display: flex; align-items: center; gap: 12px; }
+.weather-emoji { font-size: 2.2rem; line-height: 1; }
+.weather-temp { font-size: 1.9rem; font-weight: 800; color: var(--text); }
+.weather-desc { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+.weather-city { font-size: 0.75rem; color: var(--text-muted); opacity: 0.7; margin-top: 4px; }
+
+/* =====================================================
+   ACTIVITÉ RÉCENTE
+   ===================================================== */
+.activity-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+  font-size: 0.84rem;
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-av { flex-shrink: 0; }
+.activity-text { flex: 1; min-width: 0; color: var(--text); }
+.activity-text strong { color: var(--accent); }
+.activity-time { font-size: 0.7rem; color: var(--text-muted); flex-shrink: 0; }
+
+/* =====================================================
+   UPLOAD DRAG & DROP
+   ===================================================== */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--r-xl);
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 14px;
+  background: var(--g1);
+}
+.upload-zone.dragover, .upload-zone:hover {
+  border-color: var(--accent);
+  background: var(--g2);
+}
+.upload-zone-inner { pointer-events: none; }
+.upload-zone-icon { font-size: 2rem; margin-bottom: 8px; }
+.upload-zone-text { font-size: 0.88rem; color: var(--text-muted); }
+.upload-zone-link { color: var(--accent); cursor: pointer; pointer-events: auto; text-decoration: underline; }
+.upload-zone-hint { font-size: 0.72rem; color: var(--text-muted); opacity: 0.6; margin-top: 4px; }
+.upload-progress-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.upload-progress-item {
+  background: var(--g2); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 8px 12px;
+}
+.upload-progress-name { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; }
+.upload-progress-bar-wrap { height: 4px; background: var(--g1); border-radius: var(--r-pill); overflow: hidden; }
+.upload-progress-bar { height: 100%; border-radius: var(--r-pill); background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width 0.3s; }
+
+/* =====================================================
+   LIKES PHOTOS
+   ===================================================== */
+.photo-grid-item { position: relative; }
+.photo-like-btn {
+  position: absolute; bottom: 7px; right: 7px;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+  border: none; border-radius: var(--r-pill);
+  color: #fff; font-size: 0.78rem; font-family: 'Inter', sans-serif;
+  padding: 4px 10px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+  opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  transform: translateY(4px);
+}
+.photo-grid-item:hover .photo-like-btn { opacity: 1; transform: translateY(0); }
+.photo-like-btn.liked { color: #f87171; }
+.photo-like-btn .like-heart { font-size: 0.9rem; }
+
+/* =====================================================
+   MESSAGES ÉPINGLÉS
+   ===================================================== */
+.pinned-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; background: var(--g2);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem; flex-shrink: 0;
+}
+.pinned-icon { font-size: 0.9rem; flex-shrink: 0; }
+.pinned-bar-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
+.pinned-bar-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 2px 4px; flex-shrink: 0; }
+.pinned-bar-close:hover { color: var(--text); }
+
+/* =====================================================
+   STATUT PERSONNALISÉ
+   ===================================================== */
+.profile-custom-status {
+  font-size: 0.78rem; color: var(--text-muted);
+  margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.online-user-status { font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 1px; }
+.param-status-wrap { display: flex; align-items: center; gap: 6px; flex: 1; }
+.param-status-emoji {
+  width: 44px; background: var(--g1); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text); font-size: 1rem;
+  text-align: center; padding: 6px 4px; outline: none; flex-shrink: 0;
+  font-family: 'Inter', sans-serif;
+}
+.param-status-text {
+  flex: 1; background: var(--g1); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text); font-size: 0.85rem;
+  padding: 6px 10px; outline: none; font-family: 'Inter', sans-serif;
+  transition: border-color 0.2s;
+}
+.param-status-text:focus, .param-status-emoji:focus { border-color: var(--accent); }
+
+/* =====================================================
+   BADGES PROFIL
+   ===================================================== */
+.profile-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; margin-bottom: 2px; }
+.profile-badge {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--g3); border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.profile-badge--new { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.35); color: var(--success); }
+.profile-badge--active { background: rgba(var(--accent-glow)); border-color: var(--border-hi); color: var(--accent); }
+
+/* =====================================================
+   CALENDRIER
+   ===================================================== */
+.cal-toolbar {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+}
+.cal-month-title {
+  flex: 1; text-align: center;
+  font-size: 1rem; font-weight: 700; color: var(--text);
+  text-transform: capitalize;
+}
+.cal-nav-btn {
+  background: var(--g2); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text); width: 34px; height: 34px;
+  cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center;
+  transition: background 0.18s;
+}
+.cal-nav-btn:hover { background: var(--g3); }
+.cal-add-btn {
+  margin-left: auto; background: var(--accent-2); color: #fff;
+  border: none; border-radius: var(--r-pill);
+  padding: 7px 16px; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.18s;
+}
+.cal-add-btn:hover { opacity: 0.85; }
+.cal-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 4px; margin-bottom: 6px;
+}
+.cal-weekdays div {
+  text-align: center; font-size: 0.7rem; font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 6px 0;
+}
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-day {
+  min-height: 72px; background: var(--g1); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 6px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  position: relative;
+}
+.cal-day:hover { background: var(--g2); border-color: var(--border-hi); }
+.cal-day.empty { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
+.cal-day.today { border-color: var(--accent); }
+.cal-day-num {
+  font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.cal-day.today .cal-day-num { color: var(--accent); font-weight: 800; }
+.cal-event-dot {
+  font-size: 0.7rem; background: var(--accent-2); color: #fff;
+  border-radius: var(--r-sm); padding: 2px 5px; margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer;
+}
+/* Event modal */
+.event-modal {
+  position: fixed; inset: 0; z-index: 9000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.52); backdrop-filter: blur(6px);
+  opacity: 0; pointer-events: none; transition: opacity 0.18s;
+}
+.event-modal.open { opacity: 1; pointer-events: auto; }
+.event-modal-card {
+  background: var(--g2); backdrop-filter: var(--blur);
+  border: 1px solid var(--border); border-radius: var(--r-xl);
+  box-shadow: var(--sh-lg), inset 0 1px 0 var(--spec);
+  padding: 24px; width: 320px;
+  animation: profileIn 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.event-modal-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.event-input {
+  background: var(--g1); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 0.87rem;
+  padding: 9px 12px; outline: none; width: 100%;
+  transition: border-color 0.2s; box-sizing: border-box;
+}
+.event-input:focus { border-color: var(--accent); }
+.event-textarea { resize: none; height: 68px; }
+.event-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.event-cancel-btn {
+  background: var(--g2); border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: var(--r-pill); padding: 7px 16px; font-size: 0.82rem;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+}
+.event-save-btn {
+  background: var(--accent-2); color: #fff; border: none;
+  border-radius: var(--r-pill); padding: 7px 18px; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.18s;
+}
+.event-save-btn:hover { opacity: 0.85; }
+
+/* typing pulse on nav */
+@keyframes typingPulse {
+  0%,100% { opacity: 1; } 50% { opacity: 0.45; }
+}
+.typing-pulse { animation: typingPulse 1s ease-in-out infinite; }
+
+/* Section transitions */
+.section.active { animation: sectionIn 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+/* =====================================================
    VOCAL
    ===================================================== */
 
