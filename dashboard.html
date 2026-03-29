@@ -186,6 +186,16 @@
             <span class="param-label">Membre depuis</span>
             <span class="param-value" id="param-since">—</span>
           </div>
+          <div class="param-row param-row--col">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="param-label">Description</span>
+              <span class="param-sublabel" id="param-bio-count">0/200</span>
+            </div>
+            <textarea id="param-bio-input" class="param-bio-textarea" maxlength="200" placeholder="Décris-toi en quelques mots..." oninput="document.getElementById('param-bio-count').textContent=this.value.length+'/200'"></textarea>
+            <div style="display:flex;justify-content:flex-end">
+              <button class="param-action-btn" onclick="window.saveParamBio()">Enregistrer</button>
+            </div>
+          </div>
         </div>
 
         <!-- Sécurité -->
@@ -381,6 +391,51 @@
     <div class="vbar-actions">
       <button class="vbar-btn" id="vbar-mute" onclick="window.toggleVoiceMute()" title="Micro">🎤</button>
       <button class="vbar-btn vbar-leave" onclick="window.leaveVoice()" title="Quitter">📵</button>
+    </div>
+  </div>
+
+  <!-- Profile modal -->
+  <div id="profile-modal" class="profile-modal" onclick="window.closeProfile()">
+    <div class="profile-card" onclick="event.stopPropagation()">
+      <button class="profile-close" onclick="window.closeProfile()">✕</button>
+      <div class="profile-banner"></div>
+      <div class="profile-card-body">
+        <div class="profile-top">
+          <div class="profile-av-wrap">
+            <div id="profile-av-el"></div>
+            <div class="profile-online-dot" id="profile-online-dot"></div>
+          </div>
+          <div class="profile-name-block">
+            <div class="profile-username-txt" id="profile-username-txt"></div>
+            <div class="profile-status-txt" id="profile-status-txt"></div>
+          </div>
+        </div>
+        <div class="profile-section-label">À propos</div>
+        <div id="profile-bio-view" class="profile-bio-view"></div>
+        <div id="profile-bio-edit" class="profile-bio-edit-wrap" style="display:none">
+          <textarea id="profile-bio-input" class="profile-bio-input" maxlength="200" placeholder="Décris-toi en quelques mots..."></textarea>
+          <div class="profile-bio-footer">
+            <span id="profile-bio-count" class="profile-bio-count">0/200</span>
+            <button class="profile-bio-save-btn" onclick="window.saveProfileBio()">Enregistrer</button>
+          </div>
+        </div>
+        <div class="profile-stats-row">
+          <div class="profile-stat">
+            <div class="profile-stat-val" id="profile-msgs">—</div>
+            <div class="profile-stat-lbl">Messages</div>
+          </div>
+          <div class="profile-sep"></div>
+          <div class="profile-stat">
+            <div class="profile-stat-val" id="profile-photos">—</div>
+            <div class="profile-stat-lbl">Photos</div>
+          </div>
+          <div class="profile-sep"></div>
+          <div class="profile-stat">
+            <div class="profile-stat-val" id="profile-since-val">—</div>
+            <div class="profile-stat-lbl">Membre depuis</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

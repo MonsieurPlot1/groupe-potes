@@ -40,10 +40,13 @@ function lbUpdateNav() {
 
 document.addEventListener('keydown', e => {
   const lb = document.getElementById('lightbox')
-  if (!lb?.classList.contains('open')) return
-  if (e.key === 'Escape') window.closeLightbox()
-  if (e.key === 'ArrowLeft') window.lightboxNav(-1)
-  if (e.key === 'ArrowRight') window.lightboxNav(1)
+  if (lb?.classList.contains('open')) {
+    if (e.key === 'Escape') window.closeLightbox()
+    if (e.key === 'ArrowLeft') window.lightboxNav(-1)
+    if (e.key === 'ArrowRight') window.lightboxNav(1)
+    return
+  }
+  if (e.key === 'Escape') window.closeProfile()
 })
 
 // ── Utilitaires ──────────────────────────────────────
@@ -108,6 +111,7 @@ async function compressImage(file, maxWidth = 1600, quality = 0.82) {
 
 let currentUser = null
 let currentPote = null
+let onlineUsersSet = new Set()
 
 async function init() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -124,6 +128,9 @@ async function init() {
   loadHomeStats()
   loadHomeMessages()
 
+  // Init profil (crée l'entrée à la première connexion, ne fait rien si existe déjà)
+  supabase.from('profiles').upsert({ username }, { onConflict: 'username', ignoreDuplicates: true }).then(() => {})
+
   // Presence
   const channel = supabase.channel('online-users')
   channel
@@ -133,9 +140,12 @@ async function init() {
       onlineDiv.innerHTML = ''
       const users = []
       Object.values(state).forEach(presences => presences.forEach(p => users.push(p.username)))
+      onlineUsersSet = new Set(users)
       users.forEach(u => {
         const div = document.createElement('div')
         div.className = 'online-user'
+        div.style.cursor = 'pointer'
+        div.onclick = () => window.openProfile(u)
         const avEl = renderAvatarEl(u, 'online-avatar')
         const nameEl = document.createElement('span')
         nameEl.textContent = u
@@ -194,7 +204,9 @@ window.showSection = function(name) {
   document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(b => b.classList.remove('active'))
   document.getElementById('section-' + name).classList.add('active')
   document.querySelectorAll(`[data-section="${name}"]`).forEach(b => b.classList.add('active'))
-  if (name === 'params') loadMicList()
+  const mainEl = document.querySelector('.main')
+  if (mainEl) mainEl.scrollTop = 0
+  if (name === 'params') { loadMicList(); loadParamProfile() }
 }
 
 window.openPote = function(pote) {
@@ -599,7 +611,7 @@ function setupLoadMoreObserver() {
       div.innerHTML = `
         ${replyHtml}
         <div class="msg-wrapper">
-          ${!isMine ? `<div class="msg-name">${escapeHtml(msg.username)}</div>` : ''}
+          ${!isMine ? `<div class="msg-name" onclick="window.openProfile('${escapeHtml(msg.username)}')">${escapeHtml(msg.username)}</div>` : ''}
           <div class="msg-row">
             <div class="msg-actions" id="actions-${msg.id}">
               <button onclick="startReply('${msg.id}', '${safeContentB}', '${escapeHtml(msg.username)}')">↩️</button>
@@ -678,7 +690,7 @@ function appendMessage(msg) {
   div.innerHTML = `
     ${replyHtml}
     <div class="msg-wrapper">
-      ${!isMine && !isGrouped ? `<div class="msg-name">${escapeHtml(msg.username)}</div>` : ''}
+      ${!isMine && !isGrouped ? `<div class="msg-name" onclick="window.openProfile('${escapeHtml(msg.username)}')">${escapeHtml(msg.username)}</div>` : ''}
       <div class="msg-row">
         <div class="msg-actions" id="actions-${msg.id}">
           <button onclick="startReply('${msg.id}', '${replyAttr}', '${escapeHtml(msg.username)}')">↩️</button>
@@ -1595,3 +1607,111 @@ async function loadMicList(requestPermission = false) {
 
 window.saveMicChoice = function (deviceId) { localStorage.setItem('selected-mic', deviceId) }
 window.loadMicList = (rp) => loadMicList(rp)
+
+// ── Profils ──────────────────────────────────────────
+window.openProfile = async function(username) {
+  const modal = document.getElementById('profile-modal')
+  const avEl = document.getElementById('profile-av-el')
+  const isMine = username === (currentUser?.user_metadata?.username || currentUser?.email)
+
+  // Reset & affichage immédiat
+  avEl.innerHTML = ''
+  avEl.appendChild(renderAvatarEl(username, 'user-avatar-circle'))
+  document.getElementById('profile-username-txt').textContent = username
+  const isOnline = onlineUsersSet.has(username)
+  document.getElementById('profile-status-txt').textContent = isOnline ? '🟢 En ligne' : '⚫ Hors ligne'
+  document.getElementById('profile-online-dot').className = 'profile-online-dot' + (isOnline ? ' online' : '')
+  document.getElementById('profile-msgs').textContent = '—'
+  document.getElementById('profile-photos').textContent = '—'
+  document.getElementById('profile-since-val').textContent = '—'
+
+  const bioView = document.getElementById('profile-bio-view')
+  const bioEdit = document.getElementById('profile-bio-edit')
+  bioView.textContent = '...'
+  bioView.className = 'profile-bio-view' + (isMine ? ' editable' : '')
+  bioView.style.display = 'block'
+  bioEdit.style.display = 'none'
+
+  if (isMine) {
+    bioView.onclick = () => {
+      bioView.style.display = 'none'
+      bioEdit.style.display = 'block'
+      const inp = document.getElementById('profile-bio-input')
+      inp.focus()
+      inp.setSelectionRange(inp.value.length, inp.value.length)
+    }
+  } else {
+    bioView.onclick = null
+  }
+
+  modal.classList.add('open')
+
+  // Chargement profil Supabase
+  const { data: profile } = await supabase.from('profiles').select('*').eq('username', username).maybeSingle()
+  const bio = profile?.bio || ''
+  bioView.textContent = bio || (isMine ? '✏️ Clique pour ajouter une description' : 'Aucune description')
+
+  if (isMine) {
+    const inp = document.getElementById('profile-bio-input')
+    inp.value = bio
+    document.getElementById('profile-bio-count').textContent = bio.length + '/200'
+    inp.oninput = () => { document.getElementById('profile-bio-count').textContent = inp.value.length + '/200' }
+  }
+
+  if (profile?.joined_at) {
+    const d = new Date(profile.joined_at)
+    document.getElementById('profile-since-val').textContent = d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+  }
+
+  // Stats async
+  const [msgRes, photoRes] = await Promise.all([
+    supabase.from('messages').select('*', { count: 'exact', head: true }).eq('username', username),
+    supabase.storage.from('photos').list(username, { limit: 1000 })
+  ])
+  document.getElementById('profile-msgs').textContent = msgRes.count ?? 0
+  document.getElementById('profile-photos').textContent = photoRes.data?.length ?? 0
+}
+
+window.closeProfile = function() {
+  document.getElementById('profile-modal').classList.remove('open')
+}
+
+window.saveProfileBio = async function() {
+  const username = currentUser?.user_metadata?.username || currentUser?.email
+  const bio = document.getElementById('profile-bio-input').value.trim()
+  const { error } = await supabase.from('profiles').upsert(
+    { username, bio, updated_at: new Date().toISOString() },
+    { onConflict: 'username' }
+  )
+  if (!error) {
+    const bioView = document.getElementById('profile-bio-view')
+    bioView.textContent = bio || '✏️ Clique pour ajouter une description'
+    document.getElementById('profile-bio-edit').style.display = 'none'
+    bioView.style.display = 'block'
+    const paramInp = document.getElementById('param-bio-input')
+    if (paramInp) { paramInp.value = bio; document.getElementById('param-bio-count').textContent = bio.length + '/200' }
+  }
+}
+
+async function loadParamProfile() {
+  const username = currentUser?.user_metadata?.username || currentUser?.email
+  if (!username) return
+  const { data: profile } = await supabase.from('profiles').select('bio').eq('username', username).maybeSingle()
+  const bio = profile?.bio || ''
+  const inp = document.getElementById('param-bio-input')
+  if (inp) { inp.value = bio; document.getElementById('param-bio-count').textContent = bio.length + '/200' }
+}
+
+window.saveParamBio = async function() {
+  const username = currentUser?.user_metadata?.username || currentUser?.email
+  const bio = document.getElementById('param-bio-input').value.trim()
+  const { error } = await supabase.from('profiles').upsert(
+    { username, bio, updated_at: new Date().toISOString() },
+    { onConflict: 'username' }
+  )
+  if (error) { showParamToast('Erreur : ' + error.message, true) }
+  else {
+    showParamToast('Description sauvegardée ✓')
+    document.getElementById('param-bio-count').textContent = bio.length + '/200'
+  }
+}
