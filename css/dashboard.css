@@ -445,16 +445,17 @@ body.light .blob { opacity: 0.42; filter: blur(80px); }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 8px;
-  margin: 0 -8px;
+  padding: 8px 10px;
+  margin: 0 -10px;
   border-bottom: 1px solid var(--border);
   font-size: 0.88rem;
   font-weight: 500;
   border-radius: var(--r-md);
-  transition: background 0.18s;
+  transition: background 0.18s, transform 0.18s;
+  cursor: pointer;
 }
 .online-user:last-child { border-bottom: none; }
-.online-user:hover { background: var(--g1); }
+.online-user:hover { background: var(--g2); transform: translateX(3px); }
 
 .online-avatar {
   width: 32px; height: 32px;
@@ -464,6 +465,11 @@ body.light .blob { opacity: 0.42; filter: blur(80px); }
   font-size: 0.74rem; font-weight: 700; color: white;
   flex-shrink: 0;
   box-shadow: 0 2px 10px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.online-user:hover .online-avatar {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 4px 12px var(--accent-glow);
+  transform: scale(1.05);
 }
 
 .online-dot {
@@ -509,10 +515,13 @@ body.light .blob { opacity: 0.42; filter: blur(80px); }
 /* Recent messages */
 .home-message {
   display: flex; align-items: flex-start; gap: 10px;
-  padding: 10px 0;
+  padding: 9px 8px; margin: 0 -8px;
   border-bottom: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: background 0.18s;
 }
 .home-message:last-child { border-bottom: none; }
+.home-message:hover { background: var(--g1); }
 
 .home-message-avatar {
   width: 32px; height: 32px;
@@ -656,10 +665,11 @@ body.light .blob { opacity: 0.42; filter: blur(80px); }
   inset: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.4rem;
-  background: rgba(0,0,0,0.32);
+  background: rgba(0,0,0,0.38);
+  backdrop-filter: blur(2px);
   border-radius: var(--r-lg);
   opacity: 0;
-  transition: opacity 0.22s;
+  transition: opacity 0.2s ease, backdrop-filter 0.2s ease;
 }
 .photo-grid-item:hover img {
   transform: scale(1.06);
@@ -1159,6 +1169,26 @@ body.light .voice-user-card.speaking { background: rgba(74,222,128,0.12); }
 body.light .voice-ctrl-btn { background: rgba(255,255,255,0.72); }
 body.light .voice-ctrl-btn:hover { background: rgba(255,255,255,0.95); }
 
+/* Status inputs */
+body.light .param-status-emoji,
+body.light .param-status-text { background: rgba(255,255,255,0.75); border-color: rgba(0,0,0,0.10); color: var(--text); }
+body.light .param-status-emoji:focus,
+body.light .param-status-text:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+/* Bio textarea */
+body.light .param-bio-textarea,
+body.light .profile-bio-input { background: rgba(255,255,255,0.75); border-color: rgba(0,0,0,0.10); color: var(--text); }
+body.light .param-bio-textarea:focus,
+body.light .profile-bio-input:focus { border-color: var(--accent-2); }
+
+/* Upload zone */
+body.light .upload-zone { background: rgba(255,255,255,0.50); border-color: rgba(0,0,0,0.12); }
+body.light .upload-zone:hover,
+body.light .upload-zone.dragover { background: rgba(255,255,255,0.90); border-color: var(--accent-2); }
+
+/* Pinned bar */
+body.light .pinned-bar { background: rgba(255,255,255,0.70); border-color: rgba(0,0,0,0.09); }
+
 /* Calendar */
 body.light .cal-day { background: rgba(255,255,255,0.60); border-color: rgba(0,0,0,0.08); }
 body.light .cal-day:hover { background: rgba(255,255,255,0.94); border-color: var(--border-hi); }
@@ -1352,23 +1382,7 @@ button, a, label, input, select, textarea,
   to   { opacity: 1; transform: translateX(0); }
 }
 
-/* Light mode : texte muted plus lisible */
-body.light .home-card-title,
-body.light .chat-meta, body.light .bubble-time,
-body.light .home-message-time,
-body.light .offline-count,
-body.light .stat-label,
-body.light .mnb-label {
-  color: rgba(16,10,38,0.52);
-}
-
-/* Light mode : séparateurs bien visibles */
-body.light .date-separator { color: rgba(16,10,38,0.40); }
-body.light .date-separator::before,
-body.light .date-separator::after { background: rgba(110,70,210,0.18); }
-
-/* Light mode : scrollbar teintée */
-body.light * { scrollbar-color: rgba(110,70,210,0.25) transparent; }
+/* Light mode text — handled by main overrides section */
 
 /* Pulse discret sur le online-dot */
 .online-dot {
@@ -1517,8 +1531,8 @@ body.light * { scrollbar-color: rgba(110,70,210,0.25) transparent; }
   box-shadow: 0 0 12px var(--accent-glow), inset 0 1px 0 var(--spec);
 }
 .param-select option {
-  background: #12122a;
-  color: var(--text);
+  background: #0e0e2a;
+  color: rgba(255,255,255,0.9);
 }
 body.light .param-select {
   background-color: rgba(195,178,255,0.25);
@@ -1739,10 +1753,14 @@ body.light .param-toast {
    ===================================================== */
 .activity-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 7px 0; border-bottom: 1px solid var(--border);
+  padding: 7px 8px; margin: 0 -8px;
+  border-bottom: 1px solid var(--border);
   font-size: 0.84rem;
+  border-radius: var(--r-md);
+  transition: background 0.18s, transform 0.18s;
 }
 .activity-item:last-child { border-bottom: none; }
+.activity-item:hover { background: var(--g1); transform: translateX(2px); }
 .activity-av { flex-shrink: 0; }
 .activity-text { flex: 1; min-width: 0; color: var(--text); }
 .activity-text strong { color: var(--accent); }
@@ -1931,8 +1949,10 @@ body.light .param-toast {
 .event-cancel-btn {
   background: var(--g2); border: 1px solid var(--border); color: var(--text-muted);
   border-radius: var(--r-pill); padding: 7px 16px; font-size: 0.82rem;
-  cursor: pointer; font-family: 'Inter', sans-serif;
+  cursor: pointer; font-family: 'Inter', sans-serif; width: auto;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
 }
+.event-cancel-btn:hover { background: var(--g3); color: var(--text); border-color: var(--border-hi); }
 .event-save-btn {
   background: var(--accent-2); color: #fff; border: none;
   border-radius: var(--r-pill); padding: 7px 18px; font-size: 0.82rem; font-weight: 600;
@@ -2246,21 +2266,21 @@ body.light .param-toast {
 .vbar-dot {
   width: 9px; height: 9px;
   border-radius: 50%;
-  background: #4ade80;
+  background: var(--success);
   flex-shrink: 0;
-  box-shadow: 0 0 8px rgba(74,222,128,0.7);
+  box-shadow: 0 0 8px var(--success);
   animation: vbarPulse 2s ease-in-out infinite;
 }
 @keyframes vbarPulse {
-  0%, 100% { box-shadow: 0 0 6px rgba(74,222,128,0.6); }
-  50%       { box-shadow: 0 0 14px rgba(74,222,128,0.95); }
+  0%, 100% { box-shadow: 0 0 6px var(--success); }
+  50%       { box-shadow: 0 0 14px var(--success), 0 0 22px rgba(16,185,129,0.4); }
 }
 .vbar-info { min-width: 0; }
 .vbar-title {
   display: block;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #4ade80;
+  color: var(--success);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2292,13 +2312,7 @@ body.light .param-toast {
 .vbar-leave { color: var(--danger); border-color: rgba(252,165,165,0.25); }
 .vbar-leave:hover { background: rgba(252,165,165,0.15) !important; }
 
-/* Light mode */
-body.light .voice-room-header,
-body.light .voice-user-card { background: rgba(216,204,255,0.52); }
-body.light .voice-user-card.speaking { background: rgba(74,222,128,0.15); }
-body.light .voice-ctrl-btn { background: rgba(195,178,255,0.25); }
-body.light .voice-ctrl-btn:hover { background: rgba(195,178,255,0.45); }
-body.light .voice-bar { background: rgba(230,245,230,0.92); border-color: rgba(22,163,74,0.3); }
+/* Light mode — voice (handled by main light section, these are intentionally empty) */
 
 /* Mobile */
 @media (max-width: 768px) {
@@ -2520,10 +2534,14 @@ body.light .voice-bar { background: rgba(230,245,230,0.92); border-color: rgba(2
   padding-top: 12px; border-top: 1px solid var(--border);
 }
 .profile-stat { flex: 1; text-align: center; }
-.profile-stat-val { font-size: 1rem; font-weight: 700; color: var(--text); }
+.profile-stat-val {
+  font-size: 1.1rem; font-weight: 800;
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
 .profile-stat-lbl {
-  font-size: 0.63rem; color: var(--text-muted); margin-top: 2px;
-  text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 0.62rem; color: var(--text-muted); margin-top: 3px;
+  text-transform: uppercase; letter-spacing: 0.06em;
 }
 .profile-sep { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
 /* bio textarea dans params */
