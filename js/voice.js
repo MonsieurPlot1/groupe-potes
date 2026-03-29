@@ -164,16 +164,6 @@ function makePeer(remote) {
 
   if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
 
-  // Auto-renegotiate when we add/remove tracks (e.g. screen share)
-  pc.onnegotiationneeded = async () => {
-    if (pc.signalingState !== 'stable') return
-    try {
-      const offer = await pc.createOffer()
-      await pc.setLocalDescription(offer)
-      await vsend({ type: 'offer', from: me(), to: remote, sdp: pc.localDescription.toJSON() })
-    } catch {}
-  }
-
   pc.onicecandidate = async e => {
     if (e.candidate) await vsend({ type: 'ice', from: me(), to: remote, candidate: e.candidate.toJSON() })
   }
@@ -410,9 +400,16 @@ async function startStream() {
   isStreaming = true
   const track = screenStream.getVideoTracks()[0]
 
-  // Add to every existing peer connection — onnegotiationneeded fires automatically
+  // Add to every existing peer connection and renegotiate manually
   for (const [remote, pc] of Object.entries(peers)) {
     screenSenders[remote] = pc.addTrack(track, screenStream)
+    try {
+      if (pc.signalingState === 'stable') {
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        await vsend({ type: 'offer', from: me(), to: remote, sdp: pc.localDescription.toJSON() })
+      }
+    } catch {}
   }
 
   // User stops sharing from the browser's native stop button
@@ -431,10 +428,6 @@ async function stopStream(silent = false) {
   if (!isStreaming) return
   isStreaming = false
 
-  for (const [remote, pc] of Object.entries(peers)) {
-    const sender = screenSenders[remote]
-    if (sender) try { pc.removeTrack(sender) } catch {}
-  }
   for (const k in screenSenders) delete screenSenders[k]
 
   if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null }
