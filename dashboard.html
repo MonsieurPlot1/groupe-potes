@@ -37,6 +37,7 @@
       <button class="nav-btn" data-section="calendrier" onclick="showSection('calendrier')">📅 Calendrier</button>
       <button class="nav-btn" data-section="classement" onclick="showSection('classement')">🏆 Classement</button>
       <button class="nav-btn" data-section="chat" onclick="showSection('chat')">💬 Chat <span class="notif-badge" id="chat-badge" style="display:none"></span></button>
+      <button class="nav-btn" data-section="vocal" onclick="showSection('vocal')">🎙️ Vocal</button>
       <button class="nav-btn" data-section="params" onclick="showSection('params')">⚙️ Paramètres</button>
     </nav>
     <div class="sidebar-bottom">
@@ -256,6 +257,33 @@
       <div id="rank-list" class="rank-list" style="display:none"></div>
     </div>
 
+    <!-- Vocal -->
+    <div id="section-vocal" class="section">
+      <h1>🎙️ Vocal</h1>
+      <div class="voice-room">
+        <div class="voice-room-header">
+          <div class="voice-room-icon-wrap"><span class="voice-room-icon">🔊</span></div>
+          <div>
+            <div class="voice-room-name">Salon principal</div>
+            <div class="voice-room-count" id="voice-count">Personne pour l'instant</div>
+          </div>
+        </div>
+        <div class="voice-users-list" id="voice-users-list"></div>
+        <p class="voice-empty" id="voice-empty-msg">Personne dans le salon — rejoins pour commencer !</p>
+        <button class="voice-join-btn" id="voice-join-btn" onclick="window.joinVoice()">
+          🎙️ Rejoindre le salon
+        </button>
+        <div class="voice-controls" id="voice-controls" style="display:none">
+          <button class="voice-ctrl-btn" id="voice-mute-btn" onclick="window.toggleVoiceMute()">
+            <span class="vcb-icon">🎤</span><span class="vcb-label">Micro</span>
+          </button>
+          <button class="voice-ctrl-btn voice-ctrl-leave" onclick="window.leaveVoice()">
+            <span class="vcb-icon">📵</span><span class="vcb-label">Quitter</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Chat -->
     <!-- Chat -->
     <div id="section-chat" class="section">
@@ -300,16 +328,36 @@
       <span class="mnb-icon">💬</span>
       <span class="mnb-label">Chat <span class="notif-badge" id="chat-badge-mobile" style="display:none"></span></span>
     </button>
+    <button class="mobile-nav-btn" data-section="vocal" onclick="showSection('vocal')">
+      <span class="mnb-icon">🎙️</span>
+      <span class="mnb-label">Vocal</span>
+    </button>
     <button class="mobile-nav-btn" data-section="params" onclick="showSection('params')">
       <span class="mnb-icon">⚙️</span>
       <span class="mnb-label">Params</span>
     </button>
   </nav>
 
+  <!-- Voice bar (Discord-style, visible when connected) -->
+  <div class="voice-bar" id="voice-bar">
+    <div class="vbar-left">
+      <span class="vbar-dot"></span>
+      <div class="vbar-info">
+        <span class="vbar-title">Vocal connecté</span>
+        <span class="vbar-room">Salon principal</span>
+      </div>
+    </div>
+    <div class="vbar-actions">
+      <button class="vbar-btn" id="vbar-mute" onclick="window.toggleVoiceMute()" title="Micro">🎤</button>
+      <button class="vbar-btn vbar-leave" onclick="window.leaveVoice()" title="Quitter">📵</button>
+    </div>
+  </div>
+
   <script>
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
   </script>
   <script type="module" src="js/supabase.js"></script>
   <script type="module" src="js/dashboard.js"></script>
+  <script type="module" src="js/voice.js"></script>
 </body>
 </html>
