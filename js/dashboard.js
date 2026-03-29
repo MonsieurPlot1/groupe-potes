@@ -1435,7 +1435,11 @@ function renderVoiceUI() {
   if (!list) return
   list.innerHTML = ''
   voiceUsers.forEach(u => list.appendChild(voiceBuildCard(u)))
-  if (joinBtn) joinBtn.style.display = voiceConnected ? 'none' : ''
+  if (joinBtn) {
+    joinBtn.style.display = voiceConnected ? 'none' : ''
+    joinBtn.disabled = false
+    joinBtn.innerHTML = '🎙️ Rejoindre le salon'
+  }
   if (controls) controls.style.display = voiceConnected ? 'flex' : 'none'
   if (qualityRow) qualityRow.style.display = voiceConnected ? 'flex' : 'none'
   if (emptyMsg) emptyMsg.style.display = voiceUsers.length ? 'none' : ''
