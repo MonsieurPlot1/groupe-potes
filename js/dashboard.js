@@ -1100,11 +1100,10 @@ const screenSenders = {}
 function voiceMe() { return currentUser?.user_metadata?.username || currentUser?.email || '' }
 
 function voiceRenderAvatar(username) {
-  const div = document.createElement('div')
-  div.className = 'voice-avatar'
-  div.textContent = username.charAt(0).toUpperCase()
-  div.style.cssText = 'display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--accent-2);color:#fff;font-weight:700;font-size:1.1rem;flex-shrink:0'
-  return div
+  const wrap = document.createElement('div')
+  wrap.className = 'voice-av-wrap'
+  wrap.appendChild(renderAvatarEl(username, 'voice-avatar'))
+  return wrap
 }
 
 async function vsend(payload) {
@@ -1114,6 +1113,8 @@ async function vsend(payload) {
 
 window.joinVoice = async function () {
   if (voiceConnected || !currentUser) return
+  const btn = document.getElementById('voice-join-btn')
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Connexion...' }
   const savedMic = localStorage.getItem('selected-mic')
   const audioConstraint = {
     echoCancellation: true,
@@ -1128,6 +1129,7 @@ window.joinVoice = async function () {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false })
     } catch {
       showParamToast('Microphone introuvable ou refusé 🎤', true)
+      if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ Rejoindre le vocal' }
       return
     }
   }
@@ -1326,16 +1328,16 @@ function voiceWatchLevel(username, stream) {
     analyser.fftSize = 512
     src.connect(analyser)
     const data = new Uint8Array(analyser.frequencyBinCount)
-    let prev = false
+    let prevLevel = -1
     const tick = () => {
       if (!voiceConnected || ctx.state === 'closed') { ctx.close().catch(() => {}); delete voiceAudioCtxs[username]; return }
       analyser.getByteFrequencyData(data)
       const avg = data.reduce((a, b) => a + b, 0) / data.length
-      const now = avg > 10
-      if (now !== prev) {
-        prev = now
+      const level = avg < 5 ? 0 : avg < 15 ? 1 : avg < 30 ? 2 : avg < 50 ? 3 : 4
+      if (level !== prevLevel) {
+        prevLevel = level
         const u = voiceUsers.find(u => u.name === username)
-        if (u) { u.speaking = now; voiceRefreshCard(username) }
+        if (u) { u.level = level; u.speaking = level > 0; voiceRefreshCard(username) }
       }
       requestAnimationFrame(tick)
     }
@@ -1355,7 +1357,7 @@ window.toggleVoiceMute = function () {
 }
 
 function voiceAddUser(name, muted) {
-  if (!voiceUsers.find(u => u.name === name)) voiceUsers.push({ name, muted, speaking: false, streaming: false })
+  if (!voiceUsers.find(u => u.name === name)) voiceUsers.push({ name, muted, speaking: false, streaming: false, level: 0 })
 }
 
 function renderVoiceUI() {
@@ -1380,23 +1382,45 @@ function voiceBuildCard(user) {
   const div = document.createElement('div')
   div.id = 'voice-card-' + user.name
   div.className = 'voice-user-card' + (user.speaking && !user.muted ? ' speaking' : '') + (user.streaming ? ' live' : '')
+
+  // Avatar with speaking ring
   div.appendChild(voiceRenderAvatar(user.name))
+
+  // Name + live badge
+  const info = document.createElement('div')
+  info.className = 'voice-user-info'
   const name = document.createElement('span')
   name.className = 'voice-user-name'
   name.textContent = user.name
-  div.appendChild(name)
+  info.appendChild(name)
   if (user.streaming) {
     const badge = document.createElement('span')
     badge.id = 'voice-live-badge-' + user.name
     badge.className = 'voice-live-badge'
     badge.textContent = '🔴 LIVE'
-    div.appendChild(badge)
+    info.appendChild(badge)
   }
+  div.appendChild(info)
+
+  // Volume level bars (4 bars)
+  const bars = document.createElement('div')
+  bars.className = 'voice-level-bars'
+  bars.id = 'voice-lvl-' + user.name
+  const level = user.muted ? 0 : (user.level || 0)
+  for (let i = 0; i < 4; i++) {
+    const b = document.createElement('span')
+    b.className = 'vlb' + (level > i ? ' active' : '')
+    bars.appendChild(b)
+  }
+  div.appendChild(bars)
+
+  // Mic icon
   const mic = document.createElement('span')
   mic.id = 'voice-mic-' + user.name
   mic.className = 'voice-user-mic'
   mic.textContent = user.muted ? '🔇' : '🎤'
   div.appendChild(mic)
+
   return div
 }
 
@@ -1407,13 +1431,22 @@ function voiceRefreshCard(username) {
   card.className = 'voice-user-card' + (user.speaking && !user.muted ? ' speaking' : '') + (user.streaming ? ' live' : '')
   const mic = document.getElementById('voice-mic-' + username)
   if (mic) mic.textContent = user.muted ? '🔇' : '🎤'
+
+  // Update level bars
+  const lvlEl = document.getElementById('voice-lvl-' + username)
+  if (lvlEl) {
+    const level = user.muted ? 0 : (user.level || 0)
+    lvlEl.querySelectorAll('.vlb').forEach((b, i) => b.classList.toggle('active', level > i))
+  }
+
   const existingBadge = document.getElementById('voice-live-badge-' + username)
   if (user.streaming && !existingBadge) {
     const badge = document.createElement('span')
     badge.id = 'voice-live-badge-' + username
     badge.className = 'voice-live-badge'
     badge.textContent = '🔴 LIVE'
-    mic.before(badge)
+    const info = card.querySelector('.voice-user-info')
+    if (info) info.appendChild(badge); else mic.before(badge)
   } else if (!user.streaming && existingBadge) {
     existingBadge.remove()
   }
@@ -1434,6 +1467,8 @@ function renderVoiceBar() {
   bar.classList.toggle('visible', voiceConnected)
   const btn = document.getElementById('vbar-mute')
   if (btn) btn.textContent = voiceMuted ? '🔇' : '🎤'
+  const roomEl = bar.querySelector('.vbar-room')
+  if (roomEl) roomEl.textContent = voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
 }
 
 /* ── Stream ───────────────────────────────────────────────── */
@@ -1517,6 +1552,15 @@ window.toggleStreamFullscreen = function () {
   if (!video) return
   if (!document.fullscreenElement) video.requestFullscreen?.() || video.webkitRequestFullscreen?.()
   else document.exitFullscreen?.() || document.webkitExitFullscreen?.()
+}
+
+window.toggleStreamPip = async function () {
+  const video = document.getElementById('stream-video')
+  if (!video || !video.srcObject) { showParamToast('Aucun stream actif', true); return }
+  try {
+    if (document.pictureInPictureElement) await document.exitPictureInPicture()
+    else await video.requestPictureInPicture()
+  } catch { showParamToast('PiP non supporté sur ce navigateur', true) }
 }
 
 function updateStreamBtn() {
