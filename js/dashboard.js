@@ -585,19 +585,24 @@ function setupLoadMoreObserver() {
         ? `<img class="chat-img" src="${msg.image_url}" onclick="window.openLightbox('${msg.image_url}')" />`
         : (msg.content || '')
 
+      const bubbleInner = msg.image_url
+        ? `${bubbleContent}<span class="bubble-time">${time}</span>`
+        : `<span class="bubble-text">${bubbleContent}</span><span class="bubble-time">${time}</span>`
       div.innerHTML = `
         ${replyHtml}
         <div class="msg-wrapper">
-          <div class="msg-actions" id="actions-${msg.id}">
-            <button onclick="startReply('${msg.id}', '${(msg.content||'').replace(/'/g,"\\'")}', '${msg.username}')">↩️</button>
-            <button onclick="showReactionPicker('${msg.id}')">😄</button>
-            ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${(msg.content||'').replace(/'/g,"\\'")}')">✏️</button>` : ''}
-            ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
+          ${!isMine ? `<div class="msg-name">${msg.username}</div>` : ''}
+          <div class="msg-row">
+            <div class="msg-actions" id="actions-${msg.id}">
+              <button onclick="startReply('${msg.id}', '${(msg.content||'').replace(/'/g,"\\'")}', '${msg.username}')">↩️</button>
+              <button onclick="showReactionPicker('${msg.id}')">😄</button>
+              ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${(msg.content||'').replace(/'/g,"\\'")}')">✏️</button>` : ''}
+              ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
+            </div>
+            <div class="chat-bubble">${bubbleInner}</div>
           </div>
-          <div class="chat-bubble">${bubbleContent}</div>
         </div>
         ${buildReactions(msg)}
-        <div class="chat-meta">${isMine ? '' : msg.username + ' · '}${time}</div>
       `
       frag.appendChild(div)
     })
@@ -657,19 +662,24 @@ function appendMessage(msg) {
     ? `<img class="chat-img" src="${msg.image_url}" onclick="window.openLightbox('${msg.image_url}')" />`
     : msg.content
 
+  const bubbleInner2 = msg.image_url
+    ? `${bubbleContent}<span class="bubble-time">${time}</span>`
+    : `<span class="bubble-text">${bubbleContent}</span><span class="bubble-time">${time}</span>`
   div.innerHTML = `
     ${replyHtml}
     <div class="msg-wrapper">
-      <div class="msg-actions" id="actions-${msg.id}">
-        <button onclick="startReply('${msg.id}', '${msg.content.replace(/'/g, "\\'")}', '${msg.username}')">↩️</button>
-        <button onclick="showReactionPicker('${msg.id}')">😄</button>
-        ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${msg.content.replace(/'/g, "\\'")}')">✏️</button>` : ''}
-        ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
+      ${!isMine && !isGrouped ? `<div class="msg-name">${msg.username}</div>` : ''}
+      <div class="msg-row">
+        <div class="msg-actions" id="actions-${msg.id}">
+          <button onclick="startReply('${msg.id}', '${msg.content.replace(/'/g, "\\'")}', '${msg.username}')">↩️</button>
+          <button onclick="showReactionPicker('${msg.id}')">😄</button>
+          ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${msg.content.replace(/'/g, "\\'")}')">✏️</button>` : ''}
+          ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
+        </div>
+        <div class="chat-bubble">${bubbleInner2}</div>
       </div>
-      <div class="chat-bubble">${bubbleContent}</div>
     </div>
     ${buildReactions(msg)}
-    <div class="chat-meta">${isMine ? '' : msg.username + ' · '}${time}</div>
   `
   container.appendChild(div)
   container.scrollTop = container.scrollHeight
