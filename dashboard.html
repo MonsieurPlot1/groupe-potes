@@ -35,7 +35,6 @@
       <button class="nav-btn active" data-section="accueil" onclick="showSection('accueil')">🏠 Accueil</button>
       <button class="nav-btn" data-section="photos" onclick="showSection('photos')">📸 Photos</button>
       <button class="nav-btn" data-section="calendrier" onclick="showSection('calendrier')">📅 Calendrier</button>
-      <button class="nav-btn" data-section="classement" onclick="showSection('classement')">🏆 Classement</button>
       <button class="nav-btn" data-section="chat" onclick="showSection('chat')">💬 Chat <span class="notif-badge" id="chat-badge" style="display:none"></span></button>
       <button class="nav-btn" data-section="vocal" onclick="showSection('vocal')">🎙️ Vocal</button>
       <button class="nav-btn" data-section="params" onclick="showSection('params')">⚙️ Paramètres</button>
@@ -272,18 +271,6 @@
       <p>Bientôt disponible...</p>
     </div>
 
-    <!-- Classement -->
-    <div id="section-classement" class="section">
-      <h1>🏆 Classement</h1>
-      <div class="rank-tabs">
-        <button class="rank-tab active" data-cat="score" onclick="window.switchRankCat('score')">🌟 Score</button>
-        <button class="rank-tab" data-cat="messages" onclick="window.switchRankCat('messages')">💬 Messages</button>
-        <button class="rank-tab" data-cat="photos" onclick="window.switchRankCat('photos')">📸 Photos</button>
-      </div>
-      <div id="rank-loading" class="rank-loading">Chargement des stats...</div>
-      <div id="rank-podium" class="rank-podium" style="display:none"></div>
-      <div id="rank-list" class="rank-list" style="display:none"></div>
-    </div>
 
     <!-- Vocal -->
     <div id="section-vocal" class="section">
@@ -360,10 +347,6 @@
     <button class="mobile-nav-btn" data-section="calendrier" onclick="showSection('calendrier')">
       <span class="mnb-icon">📅</span>
       <span class="mnb-label">Agenda</span>
-    </button>
-    <button class="mobile-nav-btn" data-section="classement" onclick="showSection('classement')">
-      <span class="mnb-icon">🏆</span>
-      <span class="mnb-label">Classement</span>
     </button>
     <button class="mobile-nav-btn" data-section="chat" onclick="showSection('chat')">
       <span class="mnb-icon">💬</span>
