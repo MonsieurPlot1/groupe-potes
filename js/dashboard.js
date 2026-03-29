@@ -1082,12 +1082,17 @@ async function vsend(payload) {
 window.joinVoice = async function () {
   if (voiceConnected || !currentUser) return
   const savedMic = localStorage.getItem('selected-mic')
-  const audioConstraint = savedMic ? { deviceId: { ideal: savedMic } } : true
+  const audioConstraint = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    ...(savedMic ? { deviceId: { ideal: savedMic } } : {})
+  }
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint, video: false })
   } catch {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false })
     } catch {
       showParamToast('Microphone introuvable ou refusé 🎤', true)
       return
