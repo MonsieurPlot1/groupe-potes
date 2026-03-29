@@ -1392,6 +1392,8 @@ async function startStream() {
     screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true })
   } catch { return }
   isStreaming = true
+  const hasAudio = screenStream.getAudioTracks().length > 0
+  if (!hasAudio) showParamToast('Pas d\'audio capturé — sur Windows, coche "Partager le son du système" dans la boîte de dialogue 🔇', true)
   const tracks = screenStream.getTracks() // vidéo + audio (si autorisé)
   for (const [remote, pc] of Object.entries(voicePeers)) {
     screenSenders[remote] = tracks.map(t => pc.addTrack(t, screenStream))
