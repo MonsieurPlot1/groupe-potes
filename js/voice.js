@@ -19,7 +19,13 @@ let currentVoiceUser = null
 
 const peers = {}       // { username: RTCPeerConnection }
 const iceQueue = {}    // { username: RTCIceCandidateInit[] }  — buffered before remoteDesc
-let voiceUsers = []    // [{ name, muted, speaking }]
+let voiceUsers = []    // [{ name, muted, speaking, streaming }]
+
+// Screen share
+let screenStream = null
+let isStreaming = false
+let currentStreamUser = null   // who's currently streaming (their name)
+const screenSenders = {}       // { username: RTCRtpSender } — to remove later
 
 /* ─── Helpers ────────────────────────────────────────────── */
 function me() { return currentVoiceUser }
@@ -89,6 +95,7 @@ window.joinVoice = async function () {
 /* ─── Leave ──────────────────────────────────────────────── */
 window.leaveVoice = async function () {
   if (!voiceConnected) return
+  if (isStreaming) await stopStream(true) // silent stop (leave handles the signal)
   if (voiceSignalChannel) {
     await vsend({ type: 'leave', from: me() })
     await sb.removeChannel(voiceSignalChannel)
@@ -133,6 +140,18 @@ async function handleSignal(p) {
       if (u) { u.muted = p.muted; refreshUserCard(p.from) }
       break
     }
+    case 'stream-start': {
+      const u = voiceUsers.find(u => u.name === p.from)
+      if (u) { u.streaming = true; refreshUserCard(p.from) }
+      currentStreamUser = p.from
+      break
+    }
+    case 'stream-stop': {
+      const u = voiceUsers.find(u => u.name === p.from)
+      if (u) { u.streaming = false; refreshUserCard(p.from) }
+      if (currentStreamUser === p.from) hideStreamView()
+      break
+    }
   }
 }
 
@@ -145,15 +164,29 @@ function makePeer(remote) {
 
   if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
 
+  // Auto-renegotiate when we add/remove tracks (e.g. screen share)
+  pc.onnegotiationneeded = async () => {
+    if (pc.signalingState !== 'stable') return
+    try {
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
+      await vsend({ type: 'offer', from: me(), to: remote, sdp: pc.localDescription.toJSON() })
+    } catch {}
+  }
+
   pc.onicecandidate = async e => {
     if (e.candidate) await vsend({ type: 'ice', from: me(), to: remote, candidate: e.candidate.toJSON() })
   }
 
   pc.ontrack = e => {
     const stream = e.streams[0] || new MediaStream([e.track])
-    playRemoteAudio(remote, stream)
-    addVoiceUser(remote, false)
-    renderVoiceUI()
+    if (e.track.kind === 'video') {
+      showStreamView(remote, stream)
+    } else {
+      playRemoteAudio(remote, stream)
+      addVoiceUser(remote, false)
+      renderVoiceUI()
+    }
   }
 
   pc.onconnectionstatechange = () => {
@@ -209,7 +242,9 @@ function removePeer(remote) {
   const pc = peers[remote]
   if (pc) { pc.close(); delete peers[remote] }
   delete iceQueue[remote]
+  delete screenSenders[remote]
   document.getElementById('v-audio-' + remote)?.remove()
+  if (currentStreamUser === remote) hideStreamView()
   voiceUsers = voiceUsers.filter(u => u.name !== remote)
   renderVoiceUI()
 }
@@ -301,12 +336,19 @@ function renderVoiceUI() {
 function buildUserCard(user) {
   const div = document.createElement('div')
   div.id = 'voice-card-' + user.name
-  div.className = 'voice-user-card' + (user.speaking && !user.muted ? ' speaking' : '')
+  div.className = 'voice-user-card' + (user.speaking && !user.muted ? ' speaking' : '') + (user.streaming ? ' live' : '')
   div.appendChild(renderAvatar(user.name))
   const name = document.createElement('span')
   name.className = 'voice-user-name'
   name.textContent = user.name
   div.appendChild(name)
+  if (user.streaming) {
+    const badge = document.createElement('span')
+    badge.id = 'voice-live-badge-' + user.name
+    badge.className = 'voice-live-badge'
+    badge.textContent = '🔴 LIVE'
+    div.appendChild(badge)
+  }
   const mic = document.createElement('span')
   mic.id = 'voice-mic-' + user.name
   mic.className = 'voice-user-mic'
@@ -319,9 +361,20 @@ function refreshUserCard(username) {
   const card = document.getElementById('voice-card-' + username)
   const user = voiceUsers.find(u => u.name === username)
   if (!card || !user) return
-  card.className = 'voice-user-card' + (user.speaking && !user.muted ? ' speaking' : '')
+  card.className = 'voice-user-card' + (user.speaking && !user.muted ? ' speaking' : '') + (user.streaming ? ' live' : '')
   const mic = document.getElementById('voice-mic-' + username)
   if (mic) mic.textContent = user.muted ? '🔇' : '🎤'
+  // Add/remove live badge
+  const existingBadge = document.getElementById('voice-live-badge-' + username)
+  if (user.streaming && !existingBadge) {
+    const badge = document.createElement('span')
+    badge.id = 'voice-live-badge-' + username
+    badge.className = 'voice-live-badge'
+    badge.textContent = '🔴 LIVE'
+    mic.before(badge)
+  } else if (!user.streaming && existingBadge) {
+    existingBadge.remove()
+  }
 }
 
 function refreshMuteBtn() {
@@ -339,6 +392,109 @@ function renderVoiceBar() {
   bar.classList.toggle('visible', voiceConnected)
   const btn = document.getElementById('vbar-mute')
   if (btn) btn.textContent = voiceMuted ? '🔇' : '🎤'
+}
+
+/* ─── Screen share ───────────────────────────────────────── */
+window.toggleStream = async function () {
+  if (isStreaming) await stopStream() else await startStream()
+}
+
+async function startStream() {
+  if (!voiceConnected) return
+  try {
+    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false })
+  } catch {
+    return // user cancelled the picker
+  }
+
+  isStreaming = true
+  const track = screenStream.getVideoTracks()[0]
+
+  // Add to every existing peer connection — onnegotiationneeded fires automatically
+  for (const [remote, pc] of Object.entries(peers)) {
+    screenSenders[remote] = pc.addTrack(track, screenStream)
+  }
+
+  // User stops sharing from the browser's native stop button
+  track.onended = () => stopStream()
+
+  await vsend({ type: 'stream-start', from: me() })
+
+  const u = voiceUsers.find(u => u.name === me())
+  if (u) { u.streaming = true; refreshUserCard(me()) }
+  currentStreamUser = me()
+  showLocalStreamPreview()
+  updateStreamBtn()
+}
+
+async function stopStream(silent = false) {
+  if (!isStreaming) return
+  isStreaming = false
+
+  for (const [remote, pc] of Object.entries(peers)) {
+    const sender = screenSenders[remote]
+    if (sender) try { pc.removeTrack(sender) } catch {}
+  }
+  for (const k in screenSenders) delete screenSenders[k]
+
+  if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null }
+
+  if (!silent) await vsend({ type: 'stream-stop', from: me() })
+
+  const u = voiceUsers.find(u => u.name === me())
+  if (u) { u.streaming = false; refreshUserCard(me()) }
+  if (currentStreamUser === me()) hideStreamView()
+  updateStreamBtn()
+}
+
+function showLocalStreamPreview() {
+  const video = document.getElementById('stream-video')
+  const nameEl = document.getElementById('stream-viewer-name')
+  const viewer = document.getElementById('stream-viewer')
+  if (!video || !viewer || !screenStream) return
+  video.srcObject = screenStream
+  if (nameEl) nameEl.textContent = me()
+  viewer.style.display = ''
+}
+
+function showStreamView(username, stream) {
+  const video = document.getElementById('stream-video')
+  const nameEl = document.getElementById('stream-viewer-name')
+  const viewer = document.getElementById('stream-viewer')
+  if (!video || !viewer) return
+  video.srcObject = stream
+  if (nameEl) nameEl.textContent = username
+  viewer.style.display = ''
+  currentStreamUser = username
+  const u = voiceUsers.find(u => u.name === username)
+  if (u) { u.streaming = true; refreshUserCard(username) }
+}
+
+function hideStreamView() {
+  const viewer = document.getElementById('stream-viewer')
+  const video = document.getElementById('stream-video')
+  if (viewer) viewer.style.display = 'none'
+  if (video) { video.srcObject = null }
+  currentStreamUser = null
+}
+
+window.toggleStreamFullscreen = function () {
+  const video = document.getElementById('stream-video')
+  if (!video) return
+  if (!document.fullscreenElement) {
+    video.requestFullscreen?.() || video.webkitRequestFullscreen?.()
+  } else {
+    document.exitFullscreen?.() || document.webkitExitFullscreen?.()
+  }
+}
+
+function updateStreamBtn() {
+  const btn = document.getElementById('stream-btn')
+  if (!btn) return
+  btn.className = 'voice-ctrl-btn' + (isStreaming ? ' streaming' : '')
+  btn.innerHTML = isStreaming
+    ? '<span class="vcb-icon">⏹️</span><span class="vcb-label">Stop</span>'
+    : '<span class="vcb-icon">🖥️</span><span class="vcb-label">Stream</span>'
 }
 
 /* ─── Mic selector ───────────────────────────────────────── */

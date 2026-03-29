@@ -286,6 +286,16 @@
             <div class="voice-room-count" id="voice-count">Personne pour l'instant</div>
           </div>
         </div>
+        <!-- Stream viewer (affiché quand quelqu'un partage) -->
+        <div class="stream-viewer" id="stream-viewer" style="display:none">
+          <div class="stream-top-bar">
+            <span class="stream-live-pill">🔴 LIVE</span>
+            <span class="stream-who" id="stream-viewer-name"></span>
+            <button class="stream-fs-btn" onclick="window.toggleStreamFullscreen()" title="Plein écran">⛶</button>
+          </div>
+          <video class="stream-video" id="stream-video" autoplay playsinline></video>
+        </div>
+
         <div class="voice-users-list" id="voice-users-list"></div>
         <p class="voice-empty" id="voice-empty-msg">Personne dans le salon — rejoins pour commencer !</p>
         <button class="voice-join-btn" id="voice-join-btn" onclick="window.joinVoice()">
@@ -294,6 +304,9 @@
         <div class="voice-controls" id="voice-controls" style="display:none">
           <button class="voice-ctrl-btn" id="voice-mute-btn" onclick="window.toggleVoiceMute()">
             <span class="vcb-icon">🎤</span><span class="vcb-label">Micro</span>
+          </button>
+          <button class="voice-ctrl-btn" id="stream-btn" onclick="window.toggleStream()">
+            <span class="vcb-icon">🖥️</span><span class="vcb-label">Stream</span>
           </button>
           <button class="voice-ctrl-btn voice-ctrl-leave" onclick="window.leaveVoice()">
             <span class="vcb-icon">📵</span><span class="vcb-label">Quitter</span>
