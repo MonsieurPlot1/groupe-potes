@@ -355,6 +355,7 @@ body.light .blob { opacity: 0.42; filter: blur(80px); }
 /* ----- MAIN ----- */
 .main {
   flex: 1;
+  min-height: 0;
   padding: 36px 40px;
   padding-right: 52px;
   overflow-y: auto;
@@ -1239,7 +1240,7 @@ body.light .theme-toggle {
   .mobile-nav { display: flex; }
 
   .dashboard-body { flex-direction: column; height: 100dvh; overflow: hidden; }
-  .main { padding: 16px 16px 96px; overscroll-behavior: contain; }
+  .main { padding: 16px 16px 96px; overflow-y: auto; overscroll-behavior: contain; }
 
   .home-grid { grid-template-columns: 1fr; }
   .messages-card { grid-column: 1; }

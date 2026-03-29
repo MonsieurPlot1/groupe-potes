@@ -46,6 +46,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') window.lightboxNav(1)
 })
 
+// ── Utilitaires ──────────────────────────────────────
+function escapeHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+}
+
 // ── Avatars ──────────────────────────────────────────
 const avatarCache = {}
 
@@ -152,12 +157,11 @@ async function loadHomeStats() {
   document.getElementById('stat-messages').textContent = msgCount || 0
 
   const potes = ['renan','noe','cesar','erwan','wili','raphaelle','lilou','gwendal','nicolas']
-  let total = 0
-  for (const pote of potes) {
+  const counts = await Promise.all(potes.map(async pote => {
     const { data } = await supabase.storage.from('photos').list(pote, { limit: 100 })
-    if (data) total += data.length
-  }
-  document.getElementById('stat-photos').textContent = total
+    return data ? data.length : 0
+  }))
+  document.getElementById('stat-photos').textContent = counts.reduce((a, b) => a + b, 0)
 }
 
 async function loadHomeMessages() {
@@ -175,10 +179,10 @@ async function loadHomeMessages() {
     contentEl.className = 'home-message-content'
     contentEl.innerHTML = `
       <div class="home-message-header">
-        <span class="home-message-username">${msg.username}</span>
+        <span class="home-message-username">${escapeHtml(msg.username)}</span>
         <span class="home-message-time">${time}</span>
       </div>
-      <div class="home-message-text">${msg.content || '📷 Photo'}</div>
+      <div class="home-message-text">${escapeHtml(msg.content) || '📷 Photo'}</div>
     `
     div.appendChild(contentEl)
     container.appendChild(div)
@@ -421,6 +425,7 @@ let chatInitialized = false
 let chatHasMore = true
 let chatOldestAt = null
 let chatLoadingMore = false
+let chatObserver = null
 
 function updateBadge() {
   const val = unreadCount > 9 ? '9+' : unreadCount
@@ -487,7 +492,7 @@ function initChat() {
     .on('broadcast', { event: 'typing' }, ({ payload }) => {
       if (payload.username !== chatUsername) {
         const el = document.getElementById('typing-indicator')
-        el.innerHTML = `<span>${payload.username}</span><span class="typing-dots"><span></span><span></span><span></span></span>`
+        el.innerHTML = `<span>${escapeHtml(payload.username)}</span><span class="typing-dots"><span></span><span></span><span></span></span>`
         el.style.opacity = '1'
         clearTimeout(el._timeout)
         el._timeout = setTimeout(() => { el.style.opacity = '0' }, 2000)
@@ -499,6 +504,7 @@ function initChat() {
 const CHAT_PAGE = 50
 
 async function loadMessages() {
+  if (chatObserver) { chatObserver.disconnect(); chatObserver = null }
   chatInitialized = false
   lastMessageDate = null
   chatHasMore = true
@@ -528,10 +534,11 @@ async function loadMessages() {
 }
 
 function setupLoadMoreObserver() {
+  if (chatObserver) { chatObserver.disconnect(); chatObserver = null }
   const sentinel = document.getElementById('chat-sentinel')
   if (!sentinel) return
 
-  const observer = new IntersectionObserver(async entries => {
+  chatObserver = new IntersectionObserver(async entries => {
     if (!entries[0].isIntersecting || chatLoadingMore || !chatHasMore) return
     chatLoadingMore = true
 
@@ -547,7 +554,7 @@ function setupLoadMoreObserver() {
 
     if (!data?.length || !data) {
       chatHasMore = false
-      observer.disconnect()
+      chatObserver?.disconnect(); chatObserver = null
       chatLoadingMore = false
       return
     }
@@ -580,10 +587,11 @@ function setupLoadMoreObserver() {
       div.dataset.username = msg.username
       div.dataset.time = time
 
-      const replyHtml = msg.reply_preview ? `<div class="reply-preview">↩️ ${msg.reply_preview}</div>` : ''
+      const replyHtml = msg.reply_preview ? `<div class="reply-preview">↩️ ${escapeHtml(msg.reply_preview)}</div>` : ''
+      const safeContentB = escapeHtml(msg.content)
       const bubbleContent = msg.image_url
-        ? `<img class="chat-img" src="${msg.image_url}" onclick="window.openLightbox('${msg.image_url}')" />`
-        : (msg.content || '')
+        ? `<img class="chat-img" src="${escapeHtml(msg.image_url)}" onclick="window.openLightbox('${escapeHtml(msg.image_url)}')" />`
+        : safeContentB
 
       const bubbleInner = msg.image_url
         ? `${bubbleContent}<span class="bubble-time">${time}</span>`
@@ -591,12 +599,12 @@ function setupLoadMoreObserver() {
       div.innerHTML = `
         ${replyHtml}
         <div class="msg-wrapper">
-          ${!isMine ? `<div class="msg-name">${msg.username}</div>` : ''}
+          ${!isMine ? `<div class="msg-name">${escapeHtml(msg.username)}</div>` : ''}
           <div class="msg-row">
             <div class="msg-actions" id="actions-${msg.id}">
-              <button onclick="startReply('${msg.id}', '${(msg.content||'').replace(/'/g,"\\'")}', '${msg.username}')">↩️</button>
+              <button onclick="startReply('${msg.id}', '${safeContentB}', '${escapeHtml(msg.username)}')">↩️</button>
               <button onclick="showReactionPicker('${msg.id}')">😄</button>
-              ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${(msg.content||'').replace(/'/g,"\\'")}')">✏️</button>` : ''}
+              ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${safeContentB}')">✏️</button>` : ''}
               ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
             </div>
             <div class="chat-bubble">${bubbleInner}</div>
@@ -614,7 +622,7 @@ function setupLoadMoreObserver() {
 
   }, { root: document.getElementById('chat-messages'), rootMargin: '80px 0px 0px 0px', threshold: 0 })
 
-  observer.observe(sentinel)
+  chatObserver.observe(sentinel)
 }
 
 function buildReactions(msg) {
@@ -658,22 +666,24 @@ function appendMessage(msg) {
     replyHtml = `<div class="reply-preview">↩️ ${msg.reply_preview}</div>`
   }
 
+  const safeContent = escapeHtml(msg.content)
   const bubbleContent = msg.image_url
-    ? `<img class="chat-img" src="${msg.image_url}" onclick="window.openLightbox('${msg.image_url}')" />`
-    : msg.content
+    ? `<img class="chat-img" src="${escapeHtml(msg.image_url)}" onclick="window.openLightbox('${escapeHtml(msg.image_url)}')" />`
+    : safeContent
 
   const bubbleInner2 = msg.image_url
     ? `${bubbleContent}<span class="bubble-time">${time}</span>`
     : `<span class="bubble-text">${bubbleContent}</span><span class="bubble-time">${time}</span>`
+  const replyAttr = escapeHtml(msg.content)
   div.innerHTML = `
     ${replyHtml}
     <div class="msg-wrapper">
-      ${!isMine && !isGrouped ? `<div class="msg-name">${msg.username}</div>` : ''}
+      ${!isMine && !isGrouped ? `<div class="msg-name">${escapeHtml(msg.username)}</div>` : ''}
       <div class="msg-row">
         <div class="msg-actions" id="actions-${msg.id}">
-          <button onclick="startReply('${msg.id}', '${msg.content.replace(/'/g, "\\'")}', '${msg.username}')">↩️</button>
+          <button onclick="startReply('${msg.id}', '${replyAttr}', '${escapeHtml(msg.username)}')">↩️</button>
           <button onclick="showReactionPicker('${msg.id}')">😄</button>
-          ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${msg.content.replace(/'/g, "\\'")}')">✏️</button>` : ''}
+          ${isMine && !msg.image_url ? `<button onclick="window.startEdit('${msg.id}', '${replyAttr}')">✏️</button>` : ''}
           ${isMine ? `<button onclick="window.deleteMessage('${msg.id}')">🗑️</button>` : ''}
         </div>
         <div class="chat-bubble">${bubbleInner2}</div>
@@ -724,22 +734,27 @@ window.startEdit = function(id, content) {
   `
   const inp = document.getElementById('edit-input-' + id)
   inp.value = content
-  inp.addEventListener('keydown', e => {
+  const onEditKey = e => {
     if (e.key === 'Enter') window.saveEdit(id)
     if (e.key === 'Escape') window.cancelEdit(id)
-  })
+  }
+  inp.addEventListener('keydown', onEditKey)
+  inp._editCleanup = () => inp.removeEventListener('keydown', onEditKey)
   inp.focus()
 }
 
 window.saveEdit = async function(id) {
   const input = document.getElementById('edit-input-' + id)
   if (!input) return
+  input._editCleanup?.()
   const newContent = input.value.trim()
-  if (!newContent) return
+  if (!newContent) { window.cancelEdit(id); return }
   await supabase.from('messages').update({ content: newContent }).eq('id', id)
 }
 
 window.cancelEdit = function(id) {
+  const input = document.getElementById('edit-input-' + id)
+  input?._editCleanup?.()
   const bubble = document.querySelector('#msg-' + id + ' .chat-bubble')
   if (!bubble) return
   bubble.textContent = bubble.dataset.original || ''
@@ -792,14 +807,13 @@ window.showReactionPicker = function(id) {
     }
   }
 
-  setTimeout(() => {
-    document.addEventListener('click', function handler(e) {
-      if (!picker.contains(e.target)) {
-        picker.remove()
-        document.removeEventListener('click', handler)
-      }
-    })
-  }, 200)
+  requestAnimationFrame(() => {
+    const handler = (e) => {
+      if (!picker.isConnected) { document.removeEventListener('click', handler); return }
+      if (!picker.contains(e.target)) { picker.remove(); document.removeEventListener('click', handler) }
+    }
+    document.addEventListener('click', handler)
+  })
 }
 
 window.toggleReaction = async function(id, emoji) {
@@ -918,7 +932,7 @@ function renderClassement(cat) {
   const podiumOrder = sorted.length >= 3
     ? [sorted[1], sorted[0], sorted[2]]
     : sorted.slice(0, 3)
-  const podiumRanks = sorted.length >= 3 ? [2, 1, 3] : [2, 1, 3]
+  const podiumRanks = sorted.length >= 3 ? [2, 1, 3] : [1, 2, 3]
 
   podiumEl.innerHTML = ''
   podiumOrder.forEach((user, i) => {
@@ -1173,9 +1187,11 @@ window.leaveVoice = async function () {
     await supabase.removeChannel(voiceSignalChannel)
     voiceSignalChannel = null
   }
+  Object.values(voiceAudioCtxs).forEach(ctx => ctx.close().catch(() => {}))
+  Object.keys(voiceAudioCtxs).forEach(k => delete voiceAudioCtxs[k])
   Object.values(voicePeers).forEach(pc => pc.close())
-  for (const k in voicePeers) delete voicePeers[k]
-  for (const k in voiceIceQueue) delete voiceIceQueue[k]
+  Object.keys(voicePeers).forEach(k => delete voicePeers[k])
+  Object.keys(voiceIceQueue).forEach(k => delete voiceIceQueue[k])
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null }
   document.querySelectorAll('.v-remote-audio').forEach(el => el.remove())
   voiceConnected = false
@@ -1330,9 +1346,14 @@ function voiceSetupLocalAnalyser() {
   voiceWatchLevel(voiceMe(), localStream)
 }
 
+const voiceAudioCtxs = {}
+
 function voiceWatchLevel(username, stream) {
+  // Ferme l'ancien AudioContext pour cet utilisateur avant d'en créer un nouveau
+  if (voiceAudioCtxs[username]) { voiceAudioCtxs[username].close().catch(() => {}); delete voiceAudioCtxs[username] }
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    voiceAudioCtxs[username] = ctx
     const src = ctx.createMediaStreamSource(stream)
     const analyser = ctx.createAnalyser()
     analyser.fftSize = 512
@@ -1340,7 +1361,7 @@ function voiceWatchLevel(username, stream) {
     const data = new Uint8Array(analyser.frequencyBinCount)
     let prev = false
     const tick = () => {
-      if (!voiceConnected) { ctx.close(); return }
+      if (!voiceConnected || ctx.state === 'closed') { ctx.close().catch(() => {}); delete voiceAudioCtxs[username]; return }
       analyser.getByteFrequencyData(data)
       const avg = data.reduce((a, b) => a + b, 0) / data.length
       const now = avg > 10
