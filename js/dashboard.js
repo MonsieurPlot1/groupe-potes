@@ -258,8 +258,11 @@ window.showSection = function(name) {
   document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(b => b.classList.remove('active'))
   document.getElementById('section-' + name).classList.add('active')
   document.querySelectorAll(`[data-section="${name}"]`).forEach(b => b.classList.add('active'))
-  const mainEl = document.querySelector('.main')
-  if (mainEl) mainEl.scrollTop = 0
+  const mainEl = document.getElementById('main-content')
+  if (mainEl) {
+    mainEl.scrollTop = 0
+    mainEl.classList.toggle('is-chat', name === 'chat')
+  }
   if (name === 'params') { loadMicList(); loadParamProfile() }
   if (name === 'calendrier') initCalendar()
 

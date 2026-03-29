@@ -1443,14 +1443,23 @@ body.light .mobile-nav-btn.active::before { background: var(--accent-2); }
   .photo-grid-item img { height: 115px; object-fit: cover; border-radius: 4px; }
   .upload-box { max-width: 100%; border-radius: var(--r-lg); }
 
-  /* ── Chat ─────────────────────────────────────── */
+  /* ── Chat : layout flex pur (pas de calc dvh) ─── */
   #section-chat {
     padding: 0;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+  }
+  /* Quand le chat est actif : .main passe en overflow:hidden */
+  #main-content.is-chat {
+    overflow: hidden;
   }
   .chat-box {
-    height: calc(100dvh - 52px - env(safe-area-inset-top, 0px) - 56px - env(safe-area-inset-bottom, 0px));
+    flex: 1;
+    min-height: 0;
+    height: auto !important;
     border-radius: 0;
     border: none;
     background: transparent;
@@ -1459,22 +1468,59 @@ body.light .mobile-nav-btn.active::before { background: var(--accent-2); }
   .chat-message { max-width: 82%; }
   .chat-bubble { font-size: 0.9rem; padding: 9px 13px; }
   .chat-input-box {
-    padding: 8px 12px;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 12px;
+    /* Compense la nav fixe + safe area home bar */
+    padding-bottom: calc(10px + 56px + env(safe-area-inset-bottom, 0px));
     gap: 8px;
     border-radius: 0;
     border-left: none;
     border-right: none;
     border-bottom: none;
+    flex-shrink: 0;
   }
   .chat-input-box button { padding: 10px 14px; font-size: 0.88rem; }
   .pinned-bar { border-radius: 0; border-left: none; border-right: none; border-top: none; }
 
-  /* ── Vocal ─────────────────────────────────────── */
-  .voice-room { max-width: 100%; border-radius: var(--r-lg); }
-  .voice-user-card { padding: 12px 14px; border-radius: var(--r-md); }
+  /* ── Vocal : refonte tuiles ─────────────────────── */
+  .voice-room { max-width: 100%; }
+  .voice-room-header { padding: 12px 14px; border-radius: var(--r-lg); gap: 12px; }
+  .voice-room-icon-wrap { width: 38px; height: 38px; font-size: 1.1rem; border-radius: var(--r-md); }
+  .voice-room-name { font-size: 0.92rem; }
+
+  /* Grille de tuiles avatars */
+  .voice-users-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .voice-user-card {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 14px 8px 12px;
+    gap: 6px;
+    border-radius: var(--r-lg);
+    min-height: 100px;
+  }
+  .voice-av-wrap { width: 46px; height: 46px; }
+  .voice-avatar { width: 46px !important; height: 46px !important; font-size: 1.1rem; }
+  .voice-user-info { align-items: center; gap: 2px; }
+  .voice-user-name { font-size: 0.72rem; text-align: center; }
+  .voice-level-bars { justify-content: center; height: 12px; }
+  .voice-user-mic { font-size: 0.82rem; }
+  .voice-live-badge { font-size: 0.6rem; padding: 2px 5px; }
+
+  /* Contrôles vocaux */
+  .voice-controls { gap: 8px; }
+  .voice-ctrl-btn { padding: 14px 8px; border-radius: var(--r-lg); }
+  .vcb-icon { font-size: 1.3rem; }
+  .vcb-label { font-size: 0.7rem; font-weight: 600; }
+  .voice-join-btn { width: 100%; padding: 16px; font-size: 1rem; border-radius: var(--r-lg); }
   .stream-viewer { border-radius: var(--r-lg); }
   .stream-quality-row { border-radius: var(--r-lg); }
+  /* Top bar du stream toujours visible sur mobile (pas de hover) */
+  .stream-top-bar { opacity: 1 !important; }
 
   /* ── Calendrier ────────────────────────────────── */
   .cal-grid { gap: 4px; }
