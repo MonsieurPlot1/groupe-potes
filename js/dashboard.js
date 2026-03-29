@@ -314,6 +314,17 @@ function initSettings() {
     if (el) el.textContent = uname
     const em = document.getElementById('param-email')
     if (em) em.textContent = currentUser.email
+
+    const sinceEl = document.getElementById('param-since')
+    if (sinceEl && currentUser.created_at) {
+      sinceEl.textContent = new Date(currentUser.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    }
+
+    const paramAv = document.getElementById('param-avatar-display')
+    if (paramAv) {
+      paramAv.innerHTML = ''
+      paramAv.appendChild(renderAvatarEl(uname, 'user-avatar-circle'))
+    }
   }
   const isLight = document.body.classList.contains('light')
   const track = document.getElementById('light-toggle-track')
@@ -321,6 +332,28 @@ function initSettings() {
   if (track) track.classList.toggle('on', isLight)
   if (check) check.checked = isLight
   buildThemePicker()
+}
+
+function showParamToast(msg, isError = false) {
+  const toast = document.getElementById('param-toast')
+  if (!toast) return
+  toast.textContent = msg
+  toast.className = 'param-toast' + (isError ? ' param-toast--error' : '') + ' visible'
+  clearTimeout(toast._t)
+  toast._t = setTimeout(() => toast.classList.remove('visible'), 3200)
+}
+
+window.sendPasswordReset = async function() {
+  if (!currentUser) return
+  const btn = document.querySelector('.param-action-btn:not(.param-action-btn--danger)')
+  if (btn) { btn.disabled = true; btn.textContent = '...' }
+  const { error } = await supabase.auth.resetPasswordForEmail(currentUser.email)
+  if (btn) { btn.disabled = false; btn.textContent = 'Réinitialiser' }
+  if (error) {
+    showParamToast('Erreur : ' + error.message, true)
+  } else {
+    showParamToast('Email envoyé à ' + currentUser.email + ' 📧')
+  }
 }
 
 // Restore on load
@@ -1002,6 +1035,8 @@ document.addEventListener('change', async e => {
     avatarCache[username] = null
     const myAvDisplay = document.getElementById('my-avatar-display')
     if (myAvDisplay) { myAvDisplay.innerHTML = ''; myAvDisplay.appendChild(renderAvatarEl(username, 'user-avatar-circle')) }
+    const paramAv = document.getElementById('param-avatar-display')
+    if (paramAv) { paramAv.innerHTML = ''; paramAv.appendChild(renderAvatarEl(username, 'user-avatar-circle')) }
   }
   e.target.value = ''
 })

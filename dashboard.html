@@ -167,12 +167,35 @@
         <div class="params-card">
           <div class="params-card-title">👤 Compte</div>
           <div class="param-row">
+            <span class="param-label">Avatar</span>
+            <label class="param-avatar-wrap" for="avatar-upload-input" title="Changer mon avatar">
+              <div id="param-avatar-display"></div>
+              <span class="param-avatar-edit">✏️</span>
+            </label>
+          </div>
+          <div class="param-row">
             <span class="param-label">Pseudo</span>
             <span class="param-value" id="param-username">—</span>
           </div>
           <div class="param-row">
             <span class="param-label">Email</span>
             <span class="param-value" id="param-email">—</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Membre depuis</span>
+            <span class="param-value" id="param-since">—</span>
+          </div>
+        </div>
+
+        <!-- Sécurité -->
+        <div class="params-card">
+          <div class="params-card-title">🔒 Sécurité</div>
+          <div class="param-row">
+            <div>
+              <span class="param-label">Mot de passe</span>
+              <div class="param-sublabel">Recevoir un lien de réinitialisation par email</div>
+            </div>
+            <button class="param-action-btn" onclick="window.sendPasswordReset()">Réinitialiser</button>
           </div>
         </div>
 
@@ -196,8 +219,23 @@
           <div class="theme-picker-grid" id="theme-picker-grid"></div>
         </div>
 
+        <!-- Zone dangereuse -->
+        <div class="params-card params-card-danger">
+          <div class="params-card-title">⚠️ Zone dangereuse</div>
+          <div class="param-row">
+            <div>
+              <span class="param-label">Déconnexion</span>
+              <div class="param-sublabel">Se déconnecter de cette session</div>
+            </div>
+            <button class="param-action-btn param-action-btn--danger" onclick="logout()">🚪 Se déconnecter</button>
+          </div>
+        </div>
+
       </div>
     </div>
+
+    <!-- Toast paramètres -->
+    <div id="param-toast" class="param-toast" aria-live="polite"></div>
 
     <!-- Calendrier -->
     <div id="section-calendrier" class="section">

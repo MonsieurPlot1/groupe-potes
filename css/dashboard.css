@@ -1373,6 +1373,8 @@ body.light * { scrollbar-color: rgba(110,70,210,0.25) transparent; }
 .params-card:nth-child(1) { animation-delay: 0.05s; }
 .params-card:nth-child(2) { animation-delay: 0.1s; }
 .params-card:nth-child(3) { animation-delay: 0.15s; }
+.params-card:nth-child(4) { animation-delay: 0.2s; }
+.params-card:nth-child(5) { animation-delay: 0.25s; }
 @keyframes cardSlideIn {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -1414,6 +1416,108 @@ body.light * { scrollbar-color: rgba(110,70,210,0.25) transparent; }
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 200px;
+}
+
+/* Sublabel */
+.param-sublabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Avatar dans paramètres */
+.param-avatar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.param-avatar-wrap .user-avatar-circle {
+  width: 40px;
+  height: 40px;
+  font-size: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.param-avatar-wrap:hover .user-avatar-circle {
+  transform: scale(1.08);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+.param-avatar-edit {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+/* Bouton action (ex: réinitialiser, déconnexion) */
+.param-action-btn {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  background: var(--g2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  width: auto;
+  box-shadow: var(--sh-sm), inset 0 1px 0 var(--spec);
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.param-action-btn:hover {
+  background: var(--g3);
+  transform: translateY(-1px);
+  box-shadow: var(--sh-md), inset 0 1px 0 var(--spec);
+}
+.param-action-btn:active { transform: scale(0.97); }
+.param-action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.param-action-btn--danger {
+  color: var(--danger);
+  border-color: rgba(252,165,165,0.25);
+  background: rgba(252,165,165,0.07);
+}
+.param-action-btn--danger:hover {
+  background: rgba(252,165,165,0.15);
+  border-color: rgba(252,165,165,0.45);
+  box-shadow: 0 0 14px rgba(252,165,165,0.2), inset 0 1px 0 var(--spec);
+}
+
+/* Card zone dangereuse */
+.params-card-danger {
+  border-color: rgba(252,165,165,0.18);
+}
+
+/* Toast paramètres */
+.param-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--g3);
+  backdrop-filter: var(--blur-sm);
+  -webkit-backdrop-filter: var(--blur-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  box-shadow: var(--sh-md), inset 0 1px 0 var(--spec);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 9999;
+  white-space: nowrap;
+}
+.param-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.param-toast--error {
+  border-color: rgba(252,165,165,0.35);
+  color: var(--danger);
 }
 
 /* Toggle switch */
@@ -1509,6 +1613,26 @@ body.light .theme-swatch {
 }
 body.light .theme-swatch:hover {
   background: rgba(210,196,255,0.52);
+}
+body.light .param-action-btn {
+  background: rgba(195,178,255,0.25);
+  border-color: rgba(109,40,217,0.22);
+  color: var(--text);
+}
+body.light .param-action-btn:hover {
+  background: rgba(195,178,255,0.45);
+}
+body.light .param-action-btn--danger {
+  background: rgba(220,38,38,0.08);
+  border-color: rgba(220,38,38,0.2);
+}
+body.light .param-action-btn--danger:hover {
+  background: rgba(220,38,38,0.15);
+}
+body.light .param-toast {
+  background: rgba(240,235,255,0.9);
+  border-color: rgba(109,40,217,0.25);
+  color: #1e1b4b;
 }
 
 /* Mobile */
