@@ -1196,6 +1196,9 @@ function voiceMakePeer(remote) {
       if (audioEl) { audioEl.pause(); audioEl.srcObject = null; audioEl.remove() }
       voiceShowStream(remote, stream)
     } else {
+      // Si le <video> joue déjà ce stream (vidéo arrivée avant audio), il gère déjà l'audio
+      const videoEl = document.getElementById('stream-video')
+      if (videoEl && videoEl.srcObject && videoEl.srcObject.id === stream.id) return
       voicePlayAudio(remote, stream)
       voiceAddUser(remote, false)
       renderVoiceUI()
@@ -1443,6 +1446,7 @@ function voiceShowLocalPreview() {
   const viewer = document.getElementById('stream-viewer')
   if (!video || !viewer || !screenStream) return
   video.srcObject = screenStream
+  video.muted = true  // évite la boucle feedback locale (loopback → lecture → re-capture)
   if (nameEl) nameEl.textContent = voiceMe()
   viewer.style.display = ''
 }
