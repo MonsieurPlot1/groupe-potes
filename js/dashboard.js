@@ -1190,11 +1190,12 @@ function voiceMakePeer(remote) {
   pc.ontrack = e => {
     const stream = e.streams[0] || new MediaStream([e.track])
     if (e.track.kind === 'video') {
+      // Supprimer l'audio element créé pour ce stream si le track audio est arrivé avant la vidéo
+      // Le <video> gère l'audio lui-même — sinon le son joue en double (distorsion)
+      const audioEl = document.getElementById('v-audio-' + stream.id)
+      if (audioEl) { audioEl.pause(); audioEl.srcObject = null; audioEl.remove() }
       voiceShowStream(remote, stream)
     } else {
-      // Si ce track audio vient d'un stream qui a aussi de la vidéo (screen share),
-      // le <video> le joue déjà — évite la double lecture qui cause distorsion/écho
-      if (stream.getVideoTracks().length > 0) return
       voicePlayAudio(remote, stream)
       voiceAddUser(remote, false)
       renderVoiceUI()
@@ -1246,20 +1247,23 @@ function voiceRemovePeer(remote) {
   if (pc) { pc.close(); delete voicePeers[remote] }
   delete voiceIceQueue[remote]
   delete screenSenders[remote]
-  document.getElementById('v-audio-' + remote)?.remove()
+  document.querySelectorAll('.v-remote-audio[data-user="' + remote + '"]').forEach(el => el.remove())
   if (currentStreamUser === remote) hideStreamView()
   voiceUsers = voiceUsers.filter(u => u.name !== remote)
   renderVoiceUI()
 }
 
 function voicePlayAudio(username, stream) {
-  let el = document.getElementById('v-audio-' + username)
+  // Clé par stream.id pour éviter qu'un stream audio écrase le stream micro
+  const elId = 'v-audio-' + stream.id
+  let el = document.getElementById(elId)
   if (!el) {
     el = document.createElement('audio')
-    el.id = 'v-audio-' + username
+    el.id = elId
     el.className = 'v-remote-audio'
     el.autoplay = true
     el.style.display = 'none'
+    el.dataset.user = username
     document.body.appendChild(el)
   }
   el.srcObject = stream
