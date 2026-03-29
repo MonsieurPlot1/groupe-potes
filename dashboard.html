@@ -220,6 +220,24 @@
           <div class="theme-picker-grid" id="theme-picker-grid"></div>
         </div>
 
+        <!-- Vocal -->
+        <div class="params-card">
+          <div class="params-card-title">🎙️ Vocal</div>
+          <div class="param-row">
+            <div>
+              <span class="param-label">Microphone</span>
+              <div class="param-sublabel" id="mic-sublabel">Sélectionne ton micro d'entrée</div>
+            </div>
+            <select class="param-select" id="mic-select" onchange="window.saveMicChoice(this.value)">
+              <option value="">Par défaut</option>
+            </select>
+          </div>
+          <div class="param-row" id="mic-detect-row" style="display:none">
+            <span class="param-label" style="color:var(--text-muted);font-size:0.82rem">Les noms de micros apparaissent après avoir rejoint le vocal une fois.</span>
+            <button class="param-action-btn" onclick="window.loadMicList(true)">Détecter</button>
+          </div>
+        </div>
+
         <!-- Zone dangereuse -->
         <div class="params-card params-card-danger">
           <div class="params-card-title">⚠️ Zone dangereuse</div>

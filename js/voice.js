@@ -56,12 +56,20 @@ window.joinVoice = async function () {
   if (!session) return
   currentVoiceUser = session.user.user_metadata?.username || session.user.email
 
+  const savedMic = localStorage.getItem('selected-mic')
+  const audioConstraint = savedMic ? { deviceId: { ideal: savedMic } } : true
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint, video: false })
   } catch {
-    showToast('Microphone introuvable ou refusé 🎤', true)
-    return
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    } catch {
+      showToast('Microphone introuvable ou refusé 🎤', true)
+      return
+    }
   }
+  // Refresh mic list now that permission is granted
+  window.loadMicList()
 
   voiceConnected = true
   addVoiceUser(me(), false)
@@ -332,3 +340,60 @@ function renderVoiceBar() {
   const btn = document.getElementById('vbar-mute')
   if (btn) btn.textContent = voiceMuted ? '🔇' : '🎤'
 }
+
+/* ─── Mic selector ───────────────────────────────────────── */
+window.loadMicList = async function (requestPermission = false) {
+  const select = document.getElementById('mic-select')
+  const sublabel = document.getElementById('mic-sublabel')
+  const detectRow = document.getElementById('mic-detect-row')
+  if (!select) return
+
+  // If we need permission first, request a short stream then stop it
+  if (requestPermission) {
+    try {
+      const tmp = await navigator.mediaDevices.getUserMedia({ audio: true })
+      tmp.getTracks().forEach(t => t.stop())
+    } catch {
+      showToast('Permission micro refusée 🎤', true)
+      return
+    }
+  }
+
+  const devices = await navigator.mediaDevices.enumerateDevices()
+  const inputs = devices.filter(d => d.kind === 'audioinput')
+  const hasLabels = inputs.some(d => d.label)
+  const saved = localStorage.getItem('selected-mic') || ''
+
+  // Rebuild options
+  select.innerHTML = '<option value="">Par défaut</option>'
+  inputs.forEach((d, i) => {
+    const opt = document.createElement('option')
+    opt.value = d.deviceId
+    opt.textContent = d.label || ('Micro ' + (i + 1))
+    opt.selected = d.deviceId === saved
+    select.appendChild(opt)
+  })
+
+  if (sublabel) {
+    sublabel.textContent = inputs.length > 1
+      ? inputs.length + ' micros détectés'
+      : 'Micro système par défaut'
+  }
+  if (detectRow) detectRow.style.display = hasLabels || inputs.length <= 1 ? 'none' : ''
+}
+
+window.saveMicChoice = function (deviceId) {
+  localStorage.setItem('selected-mic', deviceId)
+}
+
+// Refresh mic list each time params section opens
+const _origShowSection = window.showSection
+if (_origShowSection) {
+  window.showSection = function (name) {
+    _origShowSection(name)
+    if (name === 'params') window.loadMicList()
+  }
+}
+
+// Initial load (silent, no permission request)
+window.loadMicList()

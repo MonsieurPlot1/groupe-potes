@@ -1375,6 +1375,7 @@ body.light * { scrollbar-color: rgba(110,70,210,0.25) transparent; }
 .params-card:nth-child(3) { animation-delay: 0.15s; }
 .params-card:nth-child(4) { animation-delay: 0.2s; }
 .params-card:nth-child(5) { animation-delay: 0.25s; }
+.params-card:nth-child(6) { animation-delay: 0.3s; }
 @keyframes cardSlideIn {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -1448,6 +1449,47 @@ body.light * { scrollbar-color: rgba(110,70,210,0.25) transparent; }
   color: var(--text-muted);
   line-height: 1;
 }
+
+/* Select (ex: choix du micro) */
+.param-select {
+  flex-shrink: 0;
+  max-width: 180px;
+  padding: 7px 32px 7px 12px;
+  border-radius: var(--r-pill);
+  background: var(--g2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  box-shadow: var(--sh-sm), inset 0 1px 0 var(--spec);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.45)' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.param-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow), inset 0 1px 0 var(--spec);
+}
+.param-select option {
+  background: #12122a;
+  color: var(--text);
+}
+body.light .param-select {
+  background-color: rgba(195,178,255,0.25);
+  border-color: rgba(109,40,217,0.22);
+  color: #1e1b4b;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(30,27,74,0.55)' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+body.light .param-select option { background: #f3f0ff; color: #1e1b4b; }
 
 /* Bouton action (ex: réinitialiser, déconnexion) */
 .param-action-btn {
