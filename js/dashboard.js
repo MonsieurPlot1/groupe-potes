@@ -381,36 +381,44 @@ init()
 
 const THEMES = {
   violet: { name: 'Violet',  color: '#7c3aed',
-    dark:  { accent2: '#7c3aed', accent: '#c4b5fd', glow: 'rgba(139,92,246,0.38)' },
-    light: { accent2: '#4c1d95', accent: '#6d28d9', glow: 'rgba(109,40,217,0.28)' },
+    bgDark: '#07061c', bgLight: '#f0eeff',
+    dark:  { accent2: '#7c3aed', accent: '#c4b5fd', glow: 'rgba(139,92,246,0.38)', borderHi: 'rgba(167,139,250,0.38)' },
+    light: { accent2: '#5b21b6', accent: '#7c3aed', glow: 'rgba(109,40,217,0.20)', borderHi: 'rgba(109,40,217,0.30)' },
     blob1: 'rgba(124,58,237,0.75)', blob2: 'rgba(59,130,246,0.65)', blob3: 'rgba(236,72,153,0.45)', blob4: 'rgba(16,185,129,0.3)' },
   bleu: { name: 'Bleu',    color: '#2563eb',
-    dark:  { accent2: '#1d4ed8', accent: '#93c5fd', glow: 'rgba(59,130,246,0.38)' },
-    light: { accent2: '#1e3a8a', accent: '#1d4ed8', glow: 'rgba(29,78,216,0.28)' },
+    bgDark: '#040c1f', bgLight: '#eff5ff',
+    dark:  { accent2: '#1d4ed8', accent: '#93c5fd', glow: 'rgba(59,130,246,0.38)', borderHi: 'rgba(147,197,253,0.38)' },
+    light: { accent2: '#1e40af', accent: '#2563eb', glow: 'rgba(37,99,235,0.20)', borderHi: 'rgba(37,99,235,0.30)' },
     blob1: 'rgba(29,78,216,0.8)', blob2: 'rgba(6,182,212,0.65)', blob3: 'rgba(99,102,241,0.45)', blob4: 'rgba(16,185,129,0.3)' },
   rose: { name: 'Rose',    color: '#ec4899',
-    dark:  { accent2: '#be185d', accent: '#f9a8d4', glow: 'rgba(236,72,153,0.38)' },
-    light: { accent2: '#9d174d', accent: '#be185d', glow: 'rgba(190,24,93,0.28)' },
+    bgDark: '#180510', bgLight: '#fff0f8',
+    dark:  { accent2: '#be185d', accent: '#f9a8d4', glow: 'rgba(236,72,153,0.38)', borderHi: 'rgba(249,168,212,0.38)' },
+    light: { accent2: '#9d174d', accent: '#be185d', glow: 'rgba(190,24,93,0.20)', borderHi: 'rgba(190,24,93,0.30)' },
     blob1: 'rgba(190,24,93,0.8)', blob2: 'rgba(239,68,68,0.55)', blob3: 'rgba(168,85,247,0.45)', blob4: 'rgba(251,146,60,0.3)' },
   vert: { name: 'Forêt',  color: '#10b981',
-    dark:  { accent2: '#065f46', accent: '#6ee7b7', glow: 'rgba(16,185,129,0.35)' },
-    light: { accent2: '#064e3b', accent: '#059669', glow: 'rgba(5,150,105,0.28)' },
+    bgDark: '#031109', bgLight: '#edfff7',
+    dark:  { accent2: '#065f46', accent: '#6ee7b7', glow: 'rgba(16,185,129,0.35)', borderHi: 'rgba(110,231,183,0.38)' },
+    light: { accent2: '#065f46', accent: '#059669', glow: 'rgba(5,150,105,0.20)', borderHi: 'rgba(5,150,105,0.30)' },
     blob1: 'rgba(6,95,70,0.85)', blob2: 'rgba(5,150,105,0.65)', blob3: 'rgba(16,185,129,0.5)', blob4: 'rgba(59,130,246,0.25)' },
   ambre: { name: 'Ambre',  color: '#f59e0b',
-    dark:  { accent2: '#b45309', accent: '#fcd34d', glow: 'rgba(251,191,36,0.38)' },
-    light: { accent2: '#92400e', accent: '#b45309', glow: 'rgba(180,83,9,0.28)' },
+    bgDark: '#130b00', bgLight: '#fffbeb',
+    dark:  { accent2: '#b45309', accent: '#fcd34d', glow: 'rgba(251,191,36,0.38)', borderHi: 'rgba(252,211,77,0.38)' },
+    light: { accent2: '#92400e', accent: '#b45309', glow: 'rgba(180,83,9,0.20)', borderHi: 'rgba(180,83,9,0.30)' },
     blob1: 'rgba(180,83,9,0.8)', blob2: 'rgba(234,88,12,0.65)', blob3: 'rgba(251,191,36,0.5)', blob4: 'rgba(220,38,38,0.25)' },
   cyan: { name: 'Cyan',   color: '#06b6d4',
-    dark:  { accent2: '#0e7490', accent: '#67e8f9', glow: 'rgba(6,182,212,0.38)' },
-    light: { accent2: '#164e63', accent: '#0e7490', glow: 'rgba(14,116,144,0.28)' },
+    bgDark: '#031014', bgLight: '#ecfeff',
+    dark:  { accent2: '#0e7490', accent: '#67e8f9', glow: 'rgba(6,182,212,0.38)', borderHi: 'rgba(103,232,249,0.38)' },
+    light: { accent2: '#155e75', accent: '#0e7490', glow: 'rgba(14,116,144,0.20)', borderHi: 'rgba(14,116,144,0.30)' },
     blob1: 'rgba(14,116,144,0.85)', blob2: 'rgba(6,182,212,0.65)', blob3: 'rgba(99,102,241,0.4)', blob4: 'rgba(16,185,129,0.3)' },
   rouge: { name: 'Cerise', color: '#ef4444',
-    dark:  { accent2: '#991b1b', accent: '#fca5a5', glow: 'rgba(239,68,68,0.38)' },
-    light: { accent2: '#7f1d1d', accent: '#991b1b', glow: 'rgba(153,27,27,0.28)' },
+    bgDark: '#140303', bgLight: '#fff4f4',
+    dark:  { accent2: '#991b1b', accent: '#fca5a5', glow: 'rgba(239,68,68,0.38)', borderHi: 'rgba(252,165,165,0.38)' },
+    light: { accent2: '#7f1d1d', accent: '#ef4444', glow: 'rgba(239,68,68,0.20)', borderHi: 'rgba(239,68,68,0.30)' },
     blob1: 'rgba(153,27,27,0.85)', blob2: 'rgba(239,68,68,0.65)', blob3: 'rgba(190,24,93,0.45)', blob4: 'rgba(251,146,60,0.3)' },
   mono: { name: 'Slate',  color: '#94a3b8',
-    dark:  { accent2: '#475569', accent: '#cbd5e1', glow: 'rgba(100,116,139,0.38)' },
-    light: { accent2: '#334155', accent: '#475569', glow: 'rgba(71,85,105,0.28)' },
+    bgDark: '#0a0c12', bgLight: '#f3f4f8',
+    dark:  { accent2: '#475569', accent: '#cbd5e1', glow: 'rgba(100,116,139,0.38)', borderHi: 'rgba(203,213,225,0.38)' },
+    light: { accent2: '#334155', accent: '#475569', glow: 'rgba(71,85,105,0.20)', borderHi: 'rgba(71,85,105,0.30)' },
     blob1: 'rgba(51,65,85,0.85)', blob2: 'rgba(71,85,105,0.65)', blob3: 'rgba(100,116,139,0.45)', blob4: 'rgba(30,41,59,0.5)' },
 }
 
@@ -425,6 +433,8 @@ function applyTheme(themeId) {
   root.style.setProperty('--accent-2', vars.accent2)
   root.style.setProperty('--accent', vars.accent)
   root.style.setProperty('--accent-glow', vars.glow)
+  root.style.setProperty('--border-hi', vars.borderHi)
+  root.style.setProperty('--bg', isLight ? (t.bgLight || '#f0eeff') : (t.bgDark || '#07071a'))
   root.style.setProperty('--blob-1', t.blob1)
   root.style.setProperty('--blob-2', t.blob2)
   root.style.setProperty('--blob-3', t.blob3)
