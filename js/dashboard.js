@@ -1146,22 +1146,46 @@ async function vsend(payload) {
   await voiceSignalChannel.send({ type: 'broadcast', event: 'vs', payload })
 }
 
+// Applique le bitrate audio Opus 128kbps sur tous les senders audio d'un peer
+async function applyAudioBitrate(pc) {
+  await Promise.all(pc.getSenders().map(async sender => {
+    if (sender.track?.kind !== 'audio') return
+    try {
+      const params = sender.getParameters()
+      if (!params.encodings?.length) params.encodings = [{}]
+      params.encodings[0].maxBitrate = 128000 // 128 kbps (Opus HQ)
+      await sender.setParameters(params)
+    } catch(e) {}
+  }))
+}
+
+window.saveStreamQuality = function() {
+  const res = document.getElementById('stream-res')?.value || '720'
+  const fps = document.getElementById('stream-fps')?.value || '30'
+  localStorage.setItem('stream-res', res)
+  localStorage.setItem('stream-fps', fps)
+}
+
 window.joinVoice = async function () {
   if (voiceConnected || !currentUser) return
   const btn = document.getElementById('voice-join-btn')
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Connexion...' }
   const savedMic = localStorage.getItem('selected-mic')
+  // Audio HQ : 48kHz, mono (optimal pour voix), faible latence
   const audioConstraint = {
     echoCancellation: true,
     noiseSuppression: true,
     autoGainControl: true,
-    ...(savedMic ? { deviceId: { ideal: savedMic } } : {})
+    sampleRate: 48000,
+    channelCount: 1,
+    latency: 0,
+    ...(savedMic ? { deviceId: { exact: savedMic } } : {})
   }
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint, video: false })
   } catch {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false })
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000 }, video: false })
     } catch {
       showParamToast('Microphone introuvable ou refusé 🎤', true)
       if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ Rejoindre le vocal' }
@@ -1277,6 +1301,7 @@ function voiceMakePeer(remote) {
     }
   }
   pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') applyAudioBitrate(pc)
     if (pc.connectionState === 'failed' || pc.connectionState === 'closed') voiceRemovePeer(remote)
   }
   return pc
@@ -1364,15 +1389,20 @@ function voiceWatchLevel(username, stream) {
     src.connect(analyser)
     const data = new Uint8Array(analyser.frequencyBinCount)
     let prevLevel = -1
-    const tick = () => {
+    let lastTick = 0
+    const tick = (ts) => {
       if (!voiceConnected || ctx.state === 'closed') { ctx.close().catch(() => {}); delete voiceAudioCtxs[username]; return }
-      analyser.getByteFrequencyData(data)
-      const avg = data.reduce((a, b) => a + b, 0) / data.length
-      const level = avg < 5 ? 0 : avg < 15 ? 1 : avg < 30 ? 2 : avg < 50 ? 3 : 4
-      if (level !== prevLevel) {
-        prevLevel = level
-        const u = voiceUsers.find(u => u.name === username)
-        if (u) { u.level = level; u.speaking = level > 0; voiceRefreshCard(username) }
+      // Throttle à ~15fps pour les barres de niveau (inutile de tourner à 60fps)
+      if (ts - lastTick >= 66) {
+        lastTick = ts
+        analyser.getByteFrequencyData(data)
+        const avg = data.reduce((a, b) => a + b, 0) / data.length
+        const level = avg < 5 ? 0 : avg < 15 ? 1 : avg < 30 ? 2 : avg < 50 ? 3 : 4
+        if (level !== prevLevel) {
+          prevLevel = level
+          const u = voiceUsers.find(u => u.name === username)
+          if (u) { u.level = level; u.speaking = level > 0; voiceRefreshCard(username) }
+        }
       }
       requestAnimationFrame(tick)
     }
@@ -1399,6 +1429,7 @@ function renderVoiceUI() {
   const list = document.getElementById('voice-users-list')
   const joinBtn = document.getElementById('voice-join-btn')
   const controls = document.getElementById('voice-controls')
+  const qualityRow = document.getElementById('stream-quality-row')
   const emptyMsg = document.getElementById('voice-empty-msg')
   const countEl = document.getElementById('voice-count')
   if (!list) return
@@ -1406,11 +1437,19 @@ function renderVoiceUI() {
   voiceUsers.forEach(u => list.appendChild(voiceBuildCard(u)))
   if (joinBtn) joinBtn.style.display = voiceConnected ? 'none' : ''
   if (controls) controls.style.display = voiceConnected ? 'flex' : 'none'
+  if (qualityRow) qualityRow.style.display = voiceConnected ? 'flex' : 'none'
   if (emptyMsg) emptyMsg.style.display = voiceUsers.length ? 'none' : ''
   if (countEl) countEl.textContent = voiceUsers.length
     ? voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
     : 'Personne pour l\'instant'
   voiceRefreshMuteBtn()
+  // Initialise les selects depuis localStorage
+  if (voiceConnected && qualityRow) {
+    const resEl = document.getElementById('stream-res')
+    const fpsEl = document.getElementById('stream-fps')
+    if (resEl) resEl.value = localStorage.getItem('stream-res') || '720'
+    if (fpsEl) fpsEl.value = localStorage.getItem('stream-fps') || '30'
+  }
 }
 
 function voiceBuildCard(user) {
@@ -1513,8 +1552,18 @@ window.toggleStream = async function () {
 
 async function startStream() {
   if (!voiceConnected) return
+  const res = parseInt(localStorage.getItem('stream-res') || '720')
+  const fps = parseInt(localStorage.getItem('stream-fps') || '30')
+  const width = res >= 1080 ? 1920 : 1280
   try {
-    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true })
+    screenStream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        width: { ideal: width },
+        height: { ideal: res },
+        frameRate: { ideal: fps, max: fps }
+      },
+      audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+    })
   } catch { return }
   isStreaming = true
   const hasAudio = screenStream.getAudioTracks().length > 0

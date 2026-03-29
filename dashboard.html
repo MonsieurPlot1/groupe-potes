@@ -364,6 +364,17 @@
             <span class="vcb-icon">📵</span><span class="vcb-label">Quitter</span>
           </button>
         </div>
+        <div class="stream-quality-row" id="stream-quality-row" style="display:none">
+          <span class="stream-quality-label">Qualité stream</span>
+          <select class="stream-quality-select" id="stream-res" onchange="window.saveStreamQuality()">
+            <option value="720">720p</option>
+            <option value="1080">1080p</option>
+          </select>
+          <select class="stream-quality-select" id="stream-fps" onchange="window.saveStreamQuality()">
+            <option value="30">30 fps</option>
+            <option value="60">60 fps</option>
+          </select>
+        </div>
       </div>
     </div>
 
