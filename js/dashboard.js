@@ -4,6 +4,48 @@ const SUPABASE_URL = 'https://htsxdzlcmobmpevzhshh.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_V_w52NPbhRA69cOPbbIwIg_CnfS_22A'
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
+// ── Lightbox ─────────────────────────────────────────
+let lbUrls = []
+let lbIndex = 0
+
+window.openLightbox = function(url, urls = []) {
+  lbUrls = urls.length ? urls : [url]
+  lbIndex = lbUrls.indexOf(url)
+  if (lbIndex === -1) lbIndex = 0
+  const lb = document.getElementById('lightbox')
+  const img = document.getElementById('lb-img')
+  img.src = lbUrls[lbIndex]
+  lb.classList.add('open')
+  lbUpdateNav()
+}
+
+window.closeLightbox = function() {
+  document.getElementById('lightbox').classList.remove('open')
+  document.getElementById('lb-img').src = ''
+}
+
+window.lightboxNav = function(dir) {
+  lbIndex = (lbIndex + dir + lbUrls.length) % lbUrls.length
+  document.getElementById('lb-img').src = lbUrls[lbIndex]
+  lbUpdateNav()
+}
+
+function lbUpdateNav() {
+  const prev = document.querySelector('.lb-prev')
+  const next = document.querySelector('.lb-next')
+  const single = lbUrls.length <= 1
+  prev?.classList.toggle('hidden', single)
+  next?.classList.toggle('hidden', single)
+}
+
+document.addEventListener('keydown', e => {
+  const lb = document.getElementById('lightbox')
+  if (!lb?.classList.contains('open')) return
+  if (e.key === 'Escape') window.closeLightbox()
+  if (e.key === 'ArrowLeft') window.lightboxNav(-1)
+  if (e.key === 'ArrowRight') window.lightboxNav(1)
+})
+
 // ── Avatars ──────────────────────────────────────────
 const avatarCache = {}
 
@@ -173,11 +215,11 @@ async function loadPhotos(pote) {
     grid.innerHTML = '<p style="color:#aaa">Aucune photo pour l\'instant...</p>'
     return
   }
-  data.forEach(file => {
-    const { data: urlData } = supabase.storage.from('photos').getPublicUrl(pote + '/' + file.name)
+  const urls = data.map(file => supabase.storage.from('photos').getPublicUrl(pote + '/' + file.name).data.publicUrl)
+  urls.forEach(url => {
     const img = document.createElement('img')
-    img.src = urlData.publicUrl
-    img.onclick = () => window.open(urlData.publicUrl, '_blank')
+    img.src = url
+    img.onclick = () => window.openLightbox(url, urls)
     grid.appendChild(img)
   })
 }
@@ -422,7 +464,7 @@ function initChat() {
         const bubble = el.querySelector('.chat-bubble')
         if (bubble && !bubble.querySelector('.edit-wrapper')) {
           if (payload.new.image_url) {
-            bubble.innerHTML = `<img class="chat-img" src="${payload.new.image_url}" onclick="window.open('${payload.new.image_url}','_blank')" />`
+            bubble.innerHTML = `<img class="chat-img" src="${payload.new.image_url}" onclick="window.openLightbox('${payload.new.image_url}')" />`
           } else {
             bubble.textContent = payload.new.content
           }
@@ -540,7 +582,7 @@ function setupLoadMoreObserver() {
 
       const replyHtml = msg.reply_preview ? `<div class="reply-preview">↩️ ${msg.reply_preview}</div>` : ''
       const bubbleContent = msg.image_url
-        ? `<img class="chat-img" src="${msg.image_url}" onclick="window.open('${msg.image_url}','_blank')" />`
+        ? `<img class="chat-img" src="${msg.image_url}" onclick="window.openLightbox('${msg.image_url}')" />`
         : (msg.content || '')
 
       div.innerHTML = `
@@ -612,7 +654,7 @@ function appendMessage(msg) {
   }
 
   const bubbleContent = msg.image_url
-    ? `<img class="chat-img" src="${msg.image_url}" onclick="window.open('${msg.image_url}','_blank')" />`
+    ? `<img class="chat-img" src="${msg.image_url}" onclick="window.openLightbox('${msg.image_url}')" />`
     : msg.content
 
   div.innerHTML = `

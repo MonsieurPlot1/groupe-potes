@@ -384,6 +384,14 @@
     </div>
   </div>
 
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox" onclick="window.closeLightbox()">
+    <button class="lb-close" onclick="window.closeLightbox()">✕</button>
+    <button class="lb-prev" onclick="event.stopPropagation(); window.lightboxNav(-1)">❮</button>
+    <img class="lb-img" id="lb-img" src="" alt="" onclick="event.stopPropagation()" />
+    <button class="lb-next" onclick="event.stopPropagation(); window.lightboxNav(1)">❯</button>
+  </div>
+
   <script>
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
   </script>
