@@ -1157,6 +1157,11 @@ async function voiceHandleSignal(p) {
       const u = voiceUsers.find(u => u.name === p.from)
       if (u) { u.streaming = true; voiceRefreshCard(p.from) }
       currentStreamUser = p.from
+      // Ouvre le viewer tout de suite (placeholder noir) — la vidéo arrive via ontrack
+      const viewer = document.getElementById('stream-viewer')
+      const nameEl = document.getElementById('stream-viewer-name')
+      if (viewer) viewer.style.display = ''
+      if (nameEl) nameEl.textContent = p.from
       break
     }
     case 'stream-stop': {
@@ -1391,12 +1396,10 @@ async function startStream() {
   for (const [remote, pc] of Object.entries(voicePeers)) {
     screenSenders[remote] = pc.addTrack(track, screenStream)
     try {
-      if (pc.signalingState === 'stable') {
-        const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        await vsend({ type: 'offer', from: voiceMe(), to: remote, sdp: pc.localDescription.toJSON() })
-      }
-    } catch {}
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
+      await vsend({ type: 'offer', from: voiceMe(), to: remote, sdp: pc.localDescription.toJSON() })
+    } catch (err) { console.warn('stream renegotiation failed for', remote, err) }
   }
   track.onended = () => stopStream()
   await vsend({ type: 'stream-start', from: voiceMe() })
