@@ -1389,19 +1389,20 @@ window.toggleStream = async function () {
 async function startStream() {
   if (!voiceConnected) return
   try {
-    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false })
+    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: true })
   } catch { return }
   isStreaming = true
-  const track = screenStream.getVideoTracks()[0]
+  const tracks = screenStream.getTracks() // vidéo + audio (si autorisé)
   for (const [remote, pc] of Object.entries(voicePeers)) {
-    screenSenders[remote] = pc.addTrack(track, screenStream)
+    screenSenders[remote] = tracks.map(t => pc.addTrack(t, screenStream))
     try {
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
       await vsend({ type: 'offer', from: voiceMe(), to: remote, sdp: pc.localDescription.toJSON() })
     } catch (err) { console.warn('stream renegotiation failed for', remote, err) }
   }
-  track.onended = () => stopStream()
+  const videoTrack = screenStream.getVideoTracks()[0]
+  if (videoTrack) videoTrack.onended = () => stopStream()
   await vsend({ type: 'stream-start', from: voiceMe() })
   const u = voiceUsers.find(u => u.name === voiceMe())
   if (u) { u.streaming = true; voiceRefreshCard(voiceMe()) }
