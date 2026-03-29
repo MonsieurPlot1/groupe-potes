@@ -143,6 +143,15 @@ async function init() {
   myAvDisplay.innerHTML = ''; myAvDisplay.appendChild(myAv)
   document.getElementById('welcome-title').textContent = 'Bienvenue ' + username + ' 👋'
 
+  // Avatar dans la topbar mobile
+  const topbarAv = document.getElementById('mobile-topbar-avatar')
+  if (topbarAv) {
+    topbarAv.innerHTML = ''
+    const av = renderAvatarEl(username, 'user-avatar-circle')
+    topbarAv.appendChild(av)
+    topbarAv.onclick = () => window.openProfile(username)
+  }
+
   // Stats
   loadHomeStats()
   loadHomeMessages()
@@ -253,6 +262,14 @@ window.showSection = function(name) {
   if (mainEl) mainEl.scrollTop = 0
   if (name === 'params') { loadMicList(); loadParamProfile() }
   if (name === 'calendrier') initCalendar()
+
+  // Mise à jour du titre dans la topbar mobile
+  const SECTION_LABELS = {
+    accueil: 'Accueil', photos: 'Photos', calendrier: 'Calendrier',
+    chat: 'Chat', vocal: 'Vocal', params: 'Paramètres'
+  }
+  const titleEl = document.getElementById('mobile-topbar-title')
+  if (titleEl) titleEl.textContent = SECTION_LABELS[name] || name
 }
 
 window.openPote = function(pote) {
@@ -477,6 +494,8 @@ window.toggleLightMode = function(on) {
 
   const btn = document.getElementById('theme-btn')
   if (btn) btn.textContent = on ? '🌙' : '☀️'
+  const mobileBtn = document.getElementById('mobile-theme-btn')
+  if (mobileBtn) mobileBtn.textContent = on ? '🌙' : '☀️'
 
   const track = document.getElementById('light-toggle-track')
   const check = document.getElementById('light-toggle-check')
@@ -558,6 +577,8 @@ window.sendPasswordReset = async function() {
     document.body.classList.add('light')
     const btn = document.getElementById('theme-btn')
     if (btn) btn.textContent = '🌙'
+    const mobileBtn = document.getElementById('mobile-theme-btn')
+    if (mobileBtn) mobileBtn.textContent = '🌙'
   }
   applyTheme(currentTheme)
 })()

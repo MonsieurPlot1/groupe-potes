@@ -51,7 +51,17 @@
   </div>
 
   <!-- Contenu principal -->
-  <div class="main">
+  <div class="main" id="main-content">
+
+    <!-- Barre de titre mobile (sticky, visible sur mobile uniquement) -->
+    <div class="mobile-topbar" id="mobile-topbar">
+      <div class="mobile-topbar-brand">G·P</div>
+      <span class="mobile-topbar-title" id="mobile-topbar-title">Accueil</span>
+      <div class="mobile-topbar-right">
+        <button class="mobile-topbar-theme" onclick="toggleTheme()" id="mobile-theme-btn">☀️</button>
+        <div class="mobile-topbar-avatar" id="mobile-topbar-avatar"></div>
+      </div>
+    </div>
 
     <!-- Accueil -->
     <div id="section-accueil" class="section active">
