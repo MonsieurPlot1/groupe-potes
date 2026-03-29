@@ -1192,6 +1192,9 @@ function voiceMakePeer(remote) {
     if (e.track.kind === 'video') {
       voiceShowStream(remote, stream)
     } else {
+      // Si ce track audio vient d'un stream qui a aussi de la vidéo (screen share),
+      // le <video> le joue déjà — évite la double lecture qui cause distorsion/écho
+      if (stream.getVideoTracks().length > 0) return
       voicePlayAudio(remote, stream)
       voiceAddUser(remote, false)
       renderVoiceUI()
