@@ -1268,6 +1268,8 @@ window.leaveVoice = async function () {
     await supabase.removeChannel(voiceSignalChannel)
     voiceSignalChannel = null
   }
+  Object.values(voiceAnalyserTimers).forEach(t => clearInterval(t))
+  Object.keys(voiceAnalyserTimers).forEach(k => delete voiceAnalyserTimers[k])
   Object.values(voiceAudioCtxs).forEach(ctx => ctx.close().catch(() => {}))
   Object.keys(voiceAudioCtxs).forEach(k => delete voiceAudioCtxs[k])
   Object.values(voicePeers).forEach(pc => pc.close())
@@ -1433,38 +1435,52 @@ function voiceSetupLocalAnalyser() {
 
 const voiceAudioCtxs = {}
 
+// Timers setInterval pour les analysers (clé = username) — pas de RAF = pas de GPU pipeline
+const voiceAnalyserTimers = {}
+
 function voiceWatchLevel(username, stream) {
-  // Ferme l'ancien AudioContext pour cet utilisateur avant d'en créer un nouveau
+  // Ferme l'ancien AudioContext + timer pour cet utilisateur
+  if (voiceAnalyserTimers[username]) { clearInterval(voiceAnalyserTimers[username]); delete voiceAnalyserTimers[username] }
   if (voiceAudioCtxs[username]) { voiceAudioCtxs[username].close().catch(() => {}); delete voiceAudioCtxs[username] }
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     voiceAudioCtxs[username] = ctx
     const src = ctx.createMediaStreamSource(stream)
     const analyser = ctx.createAnalyser()
-    analyser.fftSize = 256  // 256 suffit pour détecter le volume (was 512)
+    analyser.fftSize = 256
     src.connect(analyser)
     const data = new Uint8Array(analyser.frequencyBinCount)
     let prevLevel = -1
-    let lastTick = 0
-    const tick = (ts) => {
-      if (!voiceConnected || ctx.state === 'closed') { ctx.close().catch(() => {}); delete voiceAudioCtxs[username]; return }
-      // Throttle à ~15fps pour les barres de niveau (inutile de tourner à 60fps)
-      if (ts - lastTick >= 66) {
-        lastTick = ts
-        analyser.getByteFrequencyData(data)
-        const avg = data.reduce((a, b) => a + b, 0) / data.length
-        const level = avg < 5 ? 0 : avg < 15 ? 1 : avg < 30 ? 2 : avg < 50 ? 3 : 4
-        if (level !== prevLevel) {
-          prevLevel = level
-          const u = voiceUsers.find(u => u.name === username)
-          if (u) { u.level = level; u.speaking = level > 0; voiceRefreshCard(username) }
-        }
+    // setInterval à 150ms (~6fps) au lieu de RAF — découple du pipeline GPU du navigateur
+    // Quand le tab est en arrière-plan (jeu actif), le browser throttle setInterval à ~1s automatiquement
+    voiceAnalyserTimers[username] = setInterval(() => {
+      if (!voiceConnected || ctx.state === 'closed') {
+        clearInterval(voiceAnalyserTimers[username])
+        delete voiceAnalyserTimers[username]
+        ctx.close().catch(() => {})
+        delete voiceAudioCtxs[username]
+        return
       }
-      requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
+      // Page Visibility : tab cachée = pas d'analyse = 0 JS overhead pendant le jeu
+      if (document.hidden) return
+      analyser.getByteFrequencyData(data)
+      const avg = data.reduce((a, b) => a + b, 0) / data.length
+      const level = avg < 5 ? 0 : avg < 15 ? 1 : avg < 30 ? 2 : avg < 50 ? 3 : 4
+      if (level !== prevLevel) {
+        prevLevel = level
+        const u = voiceUsers.find(u => u.name === username)
+        if (u) { u.level = level; u.speaking = level > 0; voiceRefreshCard(username) }
+      }
+    }, 150)
   } catch {}
 }
+
+// Quand le tab redevient visible (retour du jeu), remet les barres à jour immédiatement
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && voiceConnected) {
+    voiceUsers.forEach(u => voiceRefreshCard(u.name))
+  }
+})
 
 window.toggleVoiceMute = function () {
   if (!voiceConnected || !localStream) return
