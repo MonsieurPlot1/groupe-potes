@@ -1183,11 +1183,40 @@ async function applyAudioBitrate(pc) {
   }))
 }
 
+// Applique une limite de bitrate vidéo adaptée à la résolution sélectionnée
+// → évite les spikes GPU/CPU lors de scènes rapides (jeux)
+async function applyVideoBitrate(pc) {
+  const res = parseInt(localStorage.getItem('stream-res') || '720')
+  const fps = parseInt(localStorage.getItem('stream-fps') || '30')
+  // Bitrates max en bps : volontairement conservateurs pour préserver les FPS en jeu
+  const bitrateMap = {
+    '720-30':  2_500_000,  // 2.5 Mbps
+    '720-60':  4_000_000,  // 4 Mbps
+    '1080-30': 5_000_000,  // 5 Mbps
+    '1080-60': 8_000_000,  // 8 Mbps
+  }
+  const maxBitrate = bitrateMap[`${res}-${fps}`] || 3_000_000
+  await Promise.all(pc.getSenders().map(async sender => {
+    if (sender.track?.kind !== 'video') return
+    try {
+      const params = sender.getParameters()
+      if (!params.encodings?.length) params.encodings = [{}]
+      params.encodings[0].maxBitrate = maxBitrate
+      // Préserve le framerate, sacrifie la résolution si bandwidth tendu
+      params.encodings[0].degradationPreference = 'maintain-framerate'
+      params.encodings[0].priority = 'medium'
+      await sender.setParameters(params)
+    } catch(e) {}
+  }))
+}
+
 window.saveStreamQuality = function() {
   const res = document.getElementById('stream-res')?.value || '720'
   const fps = document.getElementById('stream-fps')?.value || '30'
   localStorage.setItem('stream-res', res)
   localStorage.setItem('stream-fps', fps)
+  // Met à jour les bitrates vidéo à la volée si un stream est actif
+  if (isStreaming) Object.values(voicePeers).forEach(pc => applyVideoBitrate(pc))
 }
 
 window.joinVoice = async function () {
@@ -1325,7 +1354,10 @@ function voiceMakePeer(remote) {
     }
   }
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'connected') applyAudioBitrate(pc)
+    if (pc.connectionState === 'connected') {
+      applyAudioBitrate(pc)
+      if (isStreaming) applyVideoBitrate(pc)
+    }
     if (pc.connectionState === 'failed' || pc.connectionState === 'closed') voiceRemovePeer(remote)
   }
   return pc
@@ -1409,7 +1441,7 @@ function voiceWatchLevel(username, stream) {
     voiceAudioCtxs[username] = ctx
     const src = ctx.createMediaStreamSource(stream)
     const analyser = ctx.createAnalyser()
-    analyser.fftSize = 512
+    analyser.fftSize = 256  // 256 suffit pour détecter le volume (was 512)
     src.connect(analyser)
     const data = new Uint8Array(analyser.frequencyBinCount)
     let prevLevel = -1
@@ -1588,11 +1620,17 @@ async function startStream() {
       video: {
         width: { ideal: width },
         height: { ideal: res },
-        frameRate: { ideal: fps, max: fps }
+        frameRate: { ideal: fps, max: fps },
+        cursor: 'motion'  // curseur visible seulement quand il bouge → moins de deltas à encoder
       },
-      audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+      audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 },
+      selfBrowserSurface: 'exclude',  // exclut l'onglet du navigateur des choix (évite la confusion)
+      systemAudio: 'include'
     })
   } catch { return }
+  // contentHint 'motion' : indique à l'encodeur que c'est du contenu en mouvement (jeu)
+  // → encodage optimisé motion (moins de keyframes, moins de CPU/GPU)
+  screenStream.getVideoTracks().forEach(t => { t.contentHint = 'motion' })
   isStreaming = true
   const hasAudio = screenStream.getAudioTracks().length > 0
   if (!hasAudio) showParamToast('Pas d\'audio capturé — sur Windows, coche "Partager le son du système" dans la boîte de dialogue 🔇', true)
@@ -1603,6 +1641,8 @@ async function startStream() {
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
       await vsend({ type: 'offer', from: voiceMe(), to: remote, sdp: pc.localDescription.toJSON() })
+      // Applique les limites bitrate vidéo après renegotiation
+      await applyVideoBitrate(pc)
     } catch (err) { console.warn('stream renegotiation failed for', remote, err) }
   }
   const videoTrack = screenStream.getVideoTracks()[0]
