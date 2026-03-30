@@ -4,24 +4,24 @@
 
 :root {
   --bg: #07071a;
-  --g1: rgba(255,255,255,0.05);
-  --g2: rgba(255,255,255,0.09);
-  --g3: rgba(255,255,255,0.15);
-  --border: rgba(255,255,255,0.12);
-  --border-hi: rgba(167,139,250,0.4);
-  --spec: rgba(255,255,255,0.24);
-  --spec-strong: rgba(255,255,255,0.42);
+  --g1: rgba(255,255,255,0.06);
+  --g2: rgba(255,255,255,0.10);
+  --g3: rgba(255,255,255,0.17);
+  --border: rgba(255,255,255,0.13);
+  --border-hi: rgba(167,139,250,0.44);
+  --spec: rgba(255,255,255,0.28);
+  --spec-strong: rgba(255,255,255,0.52);
   --text: rgba(255,255,255,0.93);
   --text-muted: rgba(255,255,255,0.42);
   --accent: #c4b5fd;
   --accent-2: #7c3aed;
   --accent-glow: rgba(139,92,246,0.38);
   --danger: #fca5a5;
-  --blur: blur(48px) saturate(190%) brightness(1.04);
-  --blur-sm: blur(16px) saturate(140%);
-  --sh-sm: 0 4px 18px rgba(0,0,0,0.18);
-  --sh-md: 0 12px 40px rgba(0,0,0,0.26);
-  --sh-lg: 0 28px 70px rgba(0,0,0,0.36);
+  --blur: blur(72px) saturate(220%) brightness(1.06);
+  --blur-sm: blur(20px) saturate(165%);
+  --sh-sm: 0 2px 8px rgba(0,0,0,0.16), 0 6px 20px rgba(0,0,0,0.10);
+  --sh-md: 0 4px 16px rgba(0,0,0,0.22), 0 16px 48px rgba(0,0,0,0.16);
+  --sh-lg: 0 8px 32px rgba(0,0,0,0.28), 0 32px 80px rgba(0,0,0,0.26);
   --r-pill: 9999px;
   --r-xl: 28px;
   --r-lg: 18px;
@@ -53,34 +53,34 @@ body {
 .blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.6;
+  filter: blur(108px);
+  opacity: 0.70;
   will-change: transform;
 }
 
 .blob-1 {
-  width: 700px; height: 700px;
-  background: radial-gradient(circle, rgba(124,58,237,0.8) 0%, transparent 70%);
-  top: -280px; left: -180px;
-  animation: blob1 20s ease-in-out infinite alternate;
+  width: 860px; height: 860px;
+  background: radial-gradient(circle, rgba(124,58,237,0.82) 0%, transparent 68%);
+  top: -300px; left: -200px;
+  animation: blob1 22s ease-in-out infinite alternate;
 }
 .blob-2 {
-  width: 600px; height: 600px;
-  background: radial-gradient(circle, rgba(59,130,246,0.65) 0%, transparent 70%);
-  bottom: -220px; right: -150px;
-  animation: blob2 26s ease-in-out infinite alternate;
+  width: 740px; height: 740px;
+  background: radial-gradient(circle, rgba(59,130,246,0.68) 0%, transparent 68%);
+  bottom: -250px; right: -180px;
+  animation: blob2 28s ease-in-out infinite alternate;
 }
 .blob-3 {
-  width: 480px; height: 480px;
-  background: radial-gradient(circle, rgba(236,72,153,0.45) 0%, transparent 70%);
+  width: 580px; height: 580px;
+  background: radial-gradient(circle, rgba(236,72,153,0.48) 0%, transparent 68%);
   top: 40%; left: 50%;
-  animation: blob3 18s ease-in-out infinite alternate;
+  animation: blob3 20s ease-in-out infinite alternate;
 }
 .blob-4 {
-  width: 360px; height: 360px;
-  background: radial-gradient(circle, rgba(16,185,129,0.3) 0%, transparent 70%);
+  width: 440px; height: 440px;
+  background: radial-gradient(circle, rgba(16,185,129,0.32) 0%, transparent 68%);
   top: 65%; left: 5%;
-  animation: blob4 23s ease-in-out infinite alternate;
+  animation: blob4 25s ease-in-out infinite alternate;
 }
 
 @keyframes blob1 {
@@ -107,18 +107,28 @@ body {
   width: 380px;
   padding: 44px 38px 40px;
   text-align: center;
-  background: var(--g2);
+  background: rgba(255,255,255,0.08);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
   box-shadow:
     var(--sh-lg),
-    inset 0 1px 0 var(--spec),
-    inset 0 -1px 0 rgba(0,0,0,0.06),
-    inset 1px 0 0 rgba(255,255,255,0.06),
-    inset -1px 0 0 rgba(255,255,255,0.04);
+    0 0 80px rgba(124,58,237,0.18),
+    inset 0 1.5px 0 var(--spec-strong),
+    inset 0 -1px 0 rgba(0,0,0,0.08),
+    inset 1px 0 0 rgba(255,255,255,0.07),
+    inset -1px 0 0 rgba(255,255,255,0.05);
   animation: cardIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.auth-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 15%; right: 15%;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent, var(--spec-strong) 35%, rgba(255,255,255,0.75) 50%, var(--spec-strong) 65%, transparent);
+  border-radius: 0 0 4px 4px;
+  pointer-events: none;
 }
 
 @keyframes cardIn {
