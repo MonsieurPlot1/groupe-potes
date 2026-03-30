@@ -2920,3 +2920,91 @@ body.light .stream-quality-select { background: rgba(255,255,255,0.9); color: #1
 .param-row--col { flex-direction: column; align-items: stretch; gap: 8px; }
 .msg-name { cursor: pointer; }
 .msg-name:hover { text-decoration: underline; }
+
+/* =====================================================
+   STREAM PICKER — sélection multi-stream
+   ===================================================== */
+.stream-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+.stream-picker::-webkit-scrollbar { display: none; }
+
+.stream-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--r-pill);
+  color: rgba(255,255,255,0.75);
+  font-size: 0.80rem;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  width: auto;
+  box-shadow: none;
+  transition: all 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  flex-shrink: 0;
+}
+.stream-pick-btn:hover {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  transform: none;
+  box-shadow: none;
+}
+.stream-pick-btn.active {
+  background: var(--accent-2);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 0 12px var(--accent-glow);
+  transform: none;
+}
+.stream-pick-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #dc2626;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(220,38,38,0.7);
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+/* ── Amélioration speaking card ───────────────────── */
+.voice-user-card.speaking {
+  border-color: #4ade80;
+  background: linear-gradient(135deg, rgba(74,222,128,0.08), var(--g3));
+  box-shadow: 0 0 20px rgba(74,222,128,0.25), var(--sh-sm), inset 0 1px 0 var(--spec);
+}
+.voice-user-card.speaking .voice-user-name {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+/* Raccourci M — petit badge dans la voice bar */
+.vbar-shortcut {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  background: var(--g1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: 'Inter', monospace;
+  flex-shrink: 0;
+}
+
+/* Mobile : stream picker reste scrollable */
+@media (max-width: 768px) {
+  .stream-picker { padding: 6px 10px; }
+  .stream-pick-btn { font-size: 0.76rem; padding: 4px 10px; }
+}

@@ -355,6 +355,8 @@
             <button class="stream-pip-btn" onclick="window.toggleStreamPip()" title="Mini fenêtre">⧉</button>
             <button class="stream-fs-btn" onclick="window.toggleStreamFullscreen()" title="Plein écran">⛶</button>
           </div>
+          <!-- Picker : visible seulement quand plusieurs streams actifs -->
+          <div class="stream-picker" id="stream-picker" style="display:none"></div>
           <video class="stream-video" id="stream-video" autoplay playsinline></video>
         </div>
 
@@ -452,7 +454,8 @@
       </div>
     </div>
     <div class="vbar-actions">
-      <button class="vbar-btn" id="vbar-mute" onclick="window.toggleVoiceMute()" title="Micro">🎤</button>
+      <button class="vbar-btn" id="vbar-mute" onclick="window.toggleVoiceMute()" title="Micro (M)">🎤</button>
+      <span class="vbar-shortcut" title="Raccourci clavier">M</span>
       <button class="vbar-btn vbar-leave" onclick="window.leaveVoice()" title="Quitter">📵</button>
     </div>
   </div>

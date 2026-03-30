@@ -1155,6 +1155,8 @@ let screenStream = null
 let isStreaming = false
 let currentStreamUser = null
 const screenSenders = {}
+// Multi-stream : stocke tous les streams reçus (username → MediaStream)
+const activeStreams = {}
 
 function voiceMe() { return currentUser?.user_metadata?.username || currentUser?.email || '' }
 
@@ -1272,6 +1274,7 @@ window.leaveVoice = async function () {
   Object.keys(voiceAnalyserTimers).forEach(k => delete voiceAnalyserTimers[k])
   Object.values(voiceAudioCtxs).forEach(ctx => ctx.close().catch(() => {}))
   Object.keys(voiceAudioCtxs).forEach(k => delete voiceAudioCtxs[k])
+  Object.keys(activeStreams).forEach(k => delete activeStreams[k])
   Object.values(voicePeers).forEach(pc => pc.close())
   Object.keys(voicePeers).forEach(k => delete voicePeers[k])
   Object.keys(voiceIceQueue).forEach(k => delete voiceIceQueue[k])
@@ -1323,7 +1326,7 @@ async function voiceHandleSignal(p) {
     case 'stream-stop': {
       const u = voiceUsers.find(u => u.name === p.from)
       if (u) { u.streaming = false; voiceRefreshCard(p.from) }
-      if (currentStreamUser === p.from) hideStreamView()
+      removeActiveStream(p.from)
       break
     }
   }
@@ -1482,6 +1485,16 @@ document.addEventListener('visibilitychange', () => {
   }
 })
 
+// Raccourci clavier M : mute/unmute vocal (seulement si aucun champ texte n'est focus)
+document.addEventListener('keydown', e => {
+  if (!voiceConnected) return
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
+  if (e.key === 'm' || e.key === 'M') {
+    e.preventDefault()
+    window.toggleVoiceMute()
+  }
+})
+
 window.toggleVoiceMute = function () {
   if (!voiceConnected || !localStream) return
   voiceMuted = !voiceMuted
@@ -1618,7 +1631,12 @@ function renderVoiceBar() {
   const btn = document.getElementById('vbar-mute')
   if (btn) btn.textContent = voiceMuted ? '🔇' : '🎤'
   const roomEl = bar.querySelector('.vbar-room')
-  if (roomEl) roomEl.textContent = voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
+  if (roomEl) {
+    const speakers = voiceUsers.filter(u => u.speaking && !u.muted).map(u => u.name)
+    roomEl.textContent = speakers.length
+      ? '🎙️ ' + speakers.join(', ')
+      : voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
+  }
 }
 
 /* ── Stream ───────────────────────────────────────────────── */
@@ -1679,7 +1697,7 @@ async function stopStream(silent = false) {
   if (!silent) await vsend({ type: 'stream-stop', from: voiceMe() })
   const u = voiceUsers.find(u => u.name === voiceMe())
   if (u) { u.streaming = false; voiceRefreshCard(voiceMe()) }
-  if (currentStreamUser === voiceMe()) hideStreamView()
+  removeActiveStream(voiceMe())
   updateStreamBtn()
 }
 
@@ -1688,13 +1706,27 @@ function voiceShowLocalPreview() {
   const nameEl = document.getElementById('stream-viewer-name')
   const viewer = document.getElementById('stream-viewer')
   if (!video || !viewer || !screenStream) return
+  activeStreams[voiceMe()] = screenStream
   video.srcObject = screenStream
   video.muted = true  // évite la boucle feedback locale (loopback → lecture → re-capture)
   if (nameEl) nameEl.textContent = voiceMe()
   viewer.style.display = ''
+  currentStreamUser = voiceMe()
+  renderStreamPicker()
 }
 
+// Enregistre un stream reçu et affiche le picker si besoin
 function voiceShowStream(username, stream) {
+  activeStreams[username] = stream
+  // Auto-watch si c'est le premier stream ou si on ne regarde rien
+  if (!currentStreamUser || currentStreamUser === username) {
+    watchStreamDirect(username, stream)
+  }
+  renderStreamPicker()
+}
+
+// Affiche effectivement un stream dans le viewer
+function watchStreamDirect(username, stream) {
   const video = document.getElementById('stream-video')
   const nameEl = document.getElementById('stream-viewer-name')
   const viewer = document.getElementById('stream-viewer')
@@ -1707,12 +1739,50 @@ function voiceShowStream(username, stream) {
   if (u) { u.streaming = true; voiceRefreshCard(username) }
 }
 
+// Permet de choisir quel stream regarder (appelé depuis le picker)
+window.watchStream = function(username) {
+  const stream = activeStreams[username]
+  if (!stream) return
+  watchStreamDirect(username, stream)
+  renderStreamPicker()
+}
+
 function hideStreamView() {
   const viewer = document.getElementById('stream-viewer')
   const video = document.getElementById('stream-video')
   if (viewer) viewer.style.display = 'none'
   if (video) video.srcObject = null
   currentStreamUser = null
+  renderStreamPicker()
+}
+
+// Retire un stream de la liste et bascule vers un autre si nécessaire
+function removeActiveStream(username) {
+  delete activeStreams[username]
+  if (currentStreamUser === username) {
+    const next = Object.keys(activeStreams)[0]
+    if (next) watchStreamDirect(next, activeStreams[next])
+    else hideStreamView()
+  }
+  renderStreamPicker()
+}
+
+// Construit le picker de streams (liste cliquable quand plusieurs streams actifs)
+function renderStreamPicker() {
+  const picker = document.getElementById('stream-picker')
+  if (!picker) return
+  const streamers = Object.keys(activeStreams)
+  // Cacher le picker s'il n'y a qu'un seul stream ou aucun
+  if (streamers.length <= 1) { picker.style.display = 'none'; return }
+  picker.style.display = 'flex'
+  picker.innerHTML = ''
+  streamers.forEach(name => {
+    const btn = document.createElement('button')
+    btn.className = 'stream-pick-btn' + (name === currentStreamUser ? ' active' : '')
+    btn.onclick = () => window.watchStream(name)
+    btn.innerHTML = `<span class="stream-pick-dot"></span>${escapeHtml(name)}`
+    picker.appendChild(btn)
+  })
 }
 
 window.toggleStreamFullscreen = function () {
