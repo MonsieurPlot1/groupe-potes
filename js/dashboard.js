@@ -1174,7 +1174,6 @@ function preferH264(sdp) {
 
 let voiceConnected = false
 let voiceMuted = false
-let voicePTT = false
 let localStream = null
 let voiceSignalChannel = null
 const voicePeers = {}
@@ -1255,11 +1254,6 @@ window.joinVoice = async function () {
   const btn = document.getElementById('voice-join-btn')
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Connexion...' }
   await getIceServers()
-  voicePTT = localStorage.getItem('voice-ptt') === '1'
-  const pttToggle = document.getElementById('voice-ptt-toggle')
-  if (pttToggle) pttToggle.checked = voicePTT
-  const pttHint = document.getElementById('ptt-key-hint')
-  if (pttHint) pttHint.style.display = voicePTT ? '' : 'none'
   const savedMic = localStorage.getItem('selected-mic')
   // Audio HQ : 48kHz, mono (optimal pour voix), faible latence
   const audioConstraint = {
@@ -1282,7 +1276,6 @@ window.joinVoice = async function () {
       return
     }
   }
-  if (voicePTT) localStream.getAudioTracks().forEach(t => { t.enabled = false })
   loadMicList()
   voiceConnected = true
   voiceAddUser(voiceMe(), false)
@@ -1321,11 +1314,6 @@ window.leaveVoice = async function () {
   document.querySelectorAll('.v-remote-audio').forEach(el => el.remove())
   voiceConnected = false
   voiceMuted = false
-  voicePTT = false
-  const pttToggle = document.getElementById('voice-ptt-toggle')
-  if (pttToggle) pttToggle.checked = false
-  const pttHint = document.getElementById('ptt-key-hint')
-  if (pttHint) pttHint.style.display = 'none'
   voiceUsers = []
   renderVoiceUI()
   renderVoiceBar()
@@ -1373,12 +1361,6 @@ async function voiceHandleSignal(p) {
       removeActiveStream(p.from)
       break
     }
-    case 'vc':
-      displayVoiceChatMsg({ from: p.from, text: p.text })
-      break
-    case 've':
-      displayVoiceEmoji(p.from, p.emoji)
-      break
   }
 }
 
@@ -1578,11 +1560,6 @@ document.addEventListener('visibilitychange', () => {
   }
 })
 
-document.addEventListener('click', () => {
-  const picker = document.getElementById('voice-emoji-picker')
-  if (picker) picker.style.display = 'none'
-})
-
 // Raccourci clavier M : mute/unmute vocal (seulement si aucun champ texte n'est focus)
 document.addEventListener('keydown', e => {
   if (!voiceConnected) return
@@ -1591,34 +1568,6 @@ document.addEventListener('keydown', e => {
     e.preventDefault()
     window.toggleVoiceMute()
   }
-})
-
-document.addEventListener('keydown', e => {
-  if (!voiceConnected || !voicePTT) return
-  if (e.key !== ' ' && e.key !== 't' && e.key !== 'T') return
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
-  if (e.repeat) return
-  if (e.key === ' ') e.preventDefault()
-  localStream?.getAudioTracks().forEach(t => { t.enabled = true })
-  voiceMuted = false
-  const u = voiceUsers.find(u => u.name === voiceMe())
-  if (u) { u.muted = false; voiceRefreshCard(voiceMe()) }
-  vsend({ type: 'mute', from: voiceMe(), muted: false })
-  voiceRefreshMuteBtn()
-  renderVoiceBar()
-})
-
-document.addEventListener('keyup', e => {
-  if (!voiceConnected || !voicePTT) return
-  if (e.key !== ' ' && e.key !== 't' && e.key !== 'T') return
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
-  localStream?.getAudioTracks().forEach(t => { t.enabled = false })
-  voiceMuted = true
-  const u = voiceUsers.find(u => u.name === voiceMe())
-  if (u) { u.muted = true; u.speaking = false; voiceRefreshCard(voiceMe()) }
-  vsend({ type: 'mute', from: voiceMe(), muted: true })
-  voiceRefreshMuteBtn()
-  renderVoiceBar()
 })
 
 window.toggleVoiceMute = function () {
@@ -1630,21 +1579,6 @@ window.toggleVoiceMute = function () {
   vsend({ type: 'mute', from: voiceMe(), muted: voiceMuted })
   voiceRefreshMuteBtn()
   renderVoiceBar()
-}
-
-window.onPTTToggle = function(on) {
-  voicePTT = on
-  localStorage.setItem('voice-ptt', on ? '1' : '0')
-  const hint = document.getElementById('ptt-key-hint')
-  if (hint) hint.style.display = on ? '' : 'none'
-  if (on && voiceConnected && !voiceMuted) {
-    voiceMuted = true
-    localStream?.getAudioTracks().forEach(t => { t.enabled = false })
-    const u = voiceUsers.find(u => u.name === voiceMe())
-    if (u) { u.muted = true; u.speaking = false; voiceRefreshCard(voiceMe()) }
-    vsend({ type: 'mute', from: voiceMe(), muted: true })
-    voiceRefreshMuteBtn()
-  }
 }
 
 function voiceAddUser(name, muted) {
@@ -1668,10 +1602,6 @@ function renderVoiceUI() {
   }
   if (controls) controls.style.display = voiceConnected ? 'flex' : 'none'
   if (qualityRow) qualityRow.style.display = voiceConnected ? 'flex' : 'none'
-  const pttRow = document.getElementById('voice-ptt-row')
-  if (pttRow) pttRow.style.display = voiceConnected ? '' : 'none'
-  const chatArea = document.getElementById('voice-chat-area')
-  if (chatArea) chatArea.style.display = voiceConnected ? '' : 'none'
   if (emptyMsg) emptyMsg.style.display = voiceUsers.length ? 'none' : ''
   if (countEl) countEl.textContent = voiceUsers.length
     ? voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
@@ -1756,12 +1686,6 @@ function voiceBuildCard(user) {
   volWrap.appendChild(volSlider)
   div.appendChild(volWrap)
 
-  // Emoji float overlay
-  const emojiFloat = document.createElement('div')
-  emojiFloat.className = 'vc-emoji-float'
-  emojiFloat.id = 'vc-emoji-' + user.name
-  div.appendChild(emojiFloat)
-
   return div
 }
 
@@ -1837,56 +1761,6 @@ function renderVoiceBar() {
       ? '🎙️ ' + speakers.join(', ')
       : voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
   }
-}
-
-window.sendVoiceChat = async function() {
-  if (!voiceConnected) return
-  const input = document.getElementById('voice-chat-input')
-  const text = input?.value.trim()
-  if (!text) return
-  input.value = ''
-  const msg = { from: voiceMe(), text }
-  displayVoiceChatMsg(msg)
-  await vsend({ type: 'vc', from: msg.from, text: msg.text })
-}
-
-function displayVoiceChatMsg({ from, text }) {
-  const feed = document.getElementById('voice-chat-feed')
-  if (!feed) return
-  const el = document.createElement('div')
-  el.className = 'vchat-msg' + (from === voiceMe() ? ' mine' : '')
-  el.innerHTML = '<span class="vchat-from">' + escapeHtml(from) + '</span> '
-    + '<span class="vchat-text">' + escapeHtml(text) + '</span>'
-  feed.appendChild(el)
-  while (feed.children.length > 5) feed.firstChild.remove()
-  setTimeout(() => el.classList.add('vchat-fade'), 7000)
-  setTimeout(() => { if (el.parentNode) el.remove() }, 8200)
-}
-
-window.sendVoiceEmoji = async function(emoji) {
-  if (!voiceConnected) return
-  const picker = document.getElementById('voice-emoji-picker')
-  if (picker) picker.style.display = 'none'
-  displayVoiceEmoji(voiceMe(), emoji)
-  await vsend({ type: 've', from: voiceMe(), emoji })
-}
-
-function displayVoiceEmoji(from, emoji) {
-  const el = document.getElementById('vc-emoji-' + from)
-  if (!el) return
-  el.textContent = emoji
-  el.className = 'vc-emoji-float vc-emoji-anim'
-  setTimeout(() => {
-    el.className = 'vc-emoji-float'
-    el.textContent = ''
-  }, 2000)
-}
-
-window.toggleVoiceEmojiPicker = function(e) {
-  if (e) e.stopPropagation()
-  const picker = document.getElementById('voice-emoji-picker')
-  if (!picker) return
-  picker.style.display = picker.style.display === 'none' ? 'flex' : 'none'
 }
 
 /* ── Stream ───────────────────────────────────────────────── */
