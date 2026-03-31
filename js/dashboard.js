@@ -1301,6 +1301,9 @@ window.leaveVoice = async function () {
   }
   Object.values(voiceAnalyserTimers).forEach(t => clearInterval(t))
   Object.keys(voiceAnalyserTimers).forEach(k => delete voiceAnalyserTimers[k])
+  Object.values(voiceReconnectTimers).forEach(t => clearTimeout(t))
+  Object.keys(voiceReconnectTimers).forEach(k => delete voiceReconnectTimers[k])
+  Object.keys(voiceReconnectAttempts).forEach(k => delete voiceReconnectAttempts[k])
   Object.values(voiceAudioCtxs).forEach(ctx => ctx.close().catch(() => {}))
   Object.keys(voiceAudioCtxs).forEach(k => delete voiceAudioCtxs[k])
   Object.keys(activeStreams).forEach(k => delete activeStreams[k])
@@ -1391,8 +1394,16 @@ function voiceMakePeer(remote) {
     if (pc.connectionState === 'connected') {
       applyAudioBitrate(pc)
       if (isStreaming) applyVideoBitrate(pc)
+      delete voiceReconnectAttempts[remote]
+      const u = voiceUsers.find(u => u.name === remote)
+      if (u) { u.reconnecting = false; u.failed = false; voiceRefreshCard(remote) }
     }
-    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') voiceRemovePeer(remote)
+    if (pc.connectionState === 'failed') {
+      voiceScheduleReconnect(remote)
+    }
+    if (pc.connectionState === 'closed') {
+      voiceRemovePeer(remote)
+    }
   }
   return pc
 }
@@ -1445,6 +1456,26 @@ function voiceRemovePeer(remote) {
   renderVoiceUI()
 }
 
+function voiceScheduleReconnect(remote) {
+  const attempt = voiceReconnectAttempts[remote] || 0
+  if (attempt >= 3) {
+    const u = voiceUsers.find(u => u.name === remote)
+    if (u) { u.reconnecting = false; u.failed = true; voiceRefreshCard(remote) }
+    return
+  }
+  voiceReconnectAttempts[remote] = attempt + 1
+  const u = voiceUsers.find(u => u.name === remote)
+  if (u) { u.reconnecting = true; u.failed = false; voiceRefreshCard(remote) }
+  const delay = [1000, 2000, 4000][attempt]
+  voiceReconnectTimers[remote] = setTimeout(async () => {
+    delete voiceReconnectTimers[remote]
+    const old = voicePeers[remote]
+    if (old) { old.close(); delete voicePeers[remote] }
+    delete voiceIceQueue[remote]
+    await voiceCreateOffer(remote)
+  }, delay)
+}
+
 function voicePlayAudio(username, stream) {
   // Clé par stream.id pour éviter qu'un stream audio écrase le stream micro
   const elId = 'v-audio-' + stream.id
@@ -1471,6 +1502,8 @@ const voiceAudioCtxs = {}
 
 // Timers setInterval pour les analysers (clé = username) — pas de RAF = pas de GPU pipeline
 const voiceAnalyserTimers = {}
+const voiceReconnectTimers = {}
+const voiceReconnectAttempts = {}
 
 function voiceWatchLevel(username, stream) {
   // Ferme l'ancien AudioContext + timer pour cet utilisateur
@@ -1547,7 +1580,7 @@ window.toggleVoiceMute = function () {
 }
 
 function voiceAddUser(name, muted) {
-  if (!voiceUsers.find(u => u.name === name)) voiceUsers.push({ name, muted, speaking: false, streaming: false, level: 0 })
+  if (!voiceUsers.find(u => u.name === name)) voiceUsers.push({ name, muted, speaking: false, streaming: false, level: 0, reconnecting: false, failed: false })
 }
 
 function renderVoiceUI() {
@@ -1584,7 +1617,13 @@ function renderVoiceUI() {
 function voiceBuildCard(user) {
   const div = document.createElement('div')
   div.id = 'voice-card-' + user.name
-  div.className = 'voice-user-card' + (user.speaking && !user.muted ? ' speaking' : '') + (user.streaming ? ' live' : '')
+  div.className = [
+    'voice-user-card',
+    user.speaking && !user.muted ? 'speaking' : '',
+    user.streaming ? 'live' : '',
+    user.reconnecting ? 'reconnecting' : '',
+    user.failed ? 'failed' : ''
+  ].filter(Boolean).join(' ')
 
   // Avatar with speaking ring
   div.appendChild(voiceRenderAvatar(user.name))
@@ -1596,6 +1635,15 @@ function voiceBuildCard(user) {
   name.className = 'voice-user-name'
   name.textContent = user.name
   info.appendChild(name)
+  const statusTxt = document.createElement('span')
+  statusTxt.className = 'voice-status-txt'
+  statusTxt.id = 'voice-status-txt-' + user.name
+  statusTxt.textContent = user.reconnecting ? '⏳ Reconnexion…'
+    : user.failed ? '❌ Connexion perdue'
+    : user.muted ? 'muté'
+    : user.streaming ? '🔴 live'
+    : ''
+  info.appendChild(statusTxt)
   if (user.streaming) {
     const badge = document.createElement('span')
     badge.id = 'voice-live-badge-' + user.name
@@ -1631,7 +1679,13 @@ function voiceRefreshCard(username) {
   const card = document.getElementById('voice-card-' + username)
   const user = voiceUsers.find(u => u.name === username)
   if (!card || !user) return
-  card.className = 'voice-user-card' + (user.speaking && !user.muted ? ' speaking' : '') + (user.streaming ? ' live' : '')
+  card.className = [
+    'voice-user-card',
+    user.speaking && !user.muted ? 'speaking' : '',
+    user.streaming ? 'live' : '',
+    user.reconnecting ? 'reconnecting' : '',
+    user.failed ? 'failed' : ''
+  ].filter(Boolean).join(' ')
   const mic = document.getElementById('voice-mic-' + username)
   if (mic) mic.textContent = user.muted ? '🔇' : '🎤'
 
@@ -1640,6 +1694,15 @@ function voiceRefreshCard(username) {
   if (lvlEl) {
     const level = user.muted ? 0 : (user.level || 0)
     lvlEl.querySelectorAll('.vlb').forEach((b, i) => b.classList.toggle('active', level > i))
+  }
+
+  const statusTxt = document.getElementById('voice-status-txt-' + username)
+  if (statusTxt) {
+    statusTxt.textContent = user.reconnecting ? '⏳ Reconnexion…'
+      : user.failed ? '❌ Connexion perdue'
+      : user.muted ? 'muté'
+      : user.streaming ? '🔴 live'
+      : ''
   }
 
   const existingBadge = document.getElementById('voice-live-badge-' + username)
