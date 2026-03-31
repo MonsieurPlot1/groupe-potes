@@ -184,6 +184,7 @@ async function init() {
         const statusMap = {}
         users.forEach(u => { if (profileStatusCache[u]) statusMap[u] = profileStatusCache[u] })
         onlineDiv.innerHTML = ''
+        const frag = document.createDocumentFragment()
         users.forEach(u => {
           const div = document.createElement('div')
           div.className = 'online-user'
@@ -206,8 +207,9 @@ async function init() {
           const dotEl = document.createElement('div')
           dotEl.className = 'online-dot'; dotEl.style.marginLeft = 'auto'
           div.appendChild(avEl); div.appendChild(nameWrap); div.appendChild(dotEl)
-          onlineDiv.appendChild(div)
+          frag.appendChild(div)
         })
+        onlineDiv.appendChild(frag)
       })
       document.getElementById('stat-online').textContent = users.length
       document.getElementById('offline-count').textContent = (9 - users.length) + ' pote(s) hors ligne'
@@ -233,6 +235,7 @@ async function loadHomeMessages() {
   const container = document.getElementById('home-messages')
   if (!data?.length) { container.innerHTML = '<p style="color:var(--text-muted);font-size:0.88rem">Aucun message pour l\'instant...</p>'; return }
   container.innerHTML = ''
+  const frag = document.createDocumentFragment()
   data.forEach(msg => {
     const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     const div = document.createElement('div')
@@ -249,8 +252,9 @@ async function loadHomeMessages() {
       <div class="home-message-text">${escapeHtml(msg.content) || '📷 Photo'}</div>
     `
     div.appendChild(contentEl)
-    container.appendChild(div)
+    frag.appendChild(div)
   })
+  container.appendChild(frag)
 }
 
 window.showSection = function(name) {
@@ -709,7 +713,10 @@ async function loadMessages() {
   chatOldestAt = msgs[0].created_at
   if (data.length < CHAT_PAGE) chatHasMore = false
 
-  msgs.forEach(msg => appendMessage(msg))
+  const frag = document.createDocumentFragment()
+  let prevEl = null
+  msgs.forEach(msg => { prevEl = appendMessage(msg, frag, prevEl) })
+  container.appendChild(frag)
   container.scrollTop = container.scrollHeight
   chatInitialized = true
 
@@ -819,8 +826,9 @@ function buildReactions(msg) {
   return `<div class="chat-reactions">${html}</div>`
 }
 
-function appendMessage(msg) {
+function appendMessage(msg, target, prevEl) {
   const container = document.getElementById('chat-messages')
+  const dest = target || container
   const isMine = msg.username === chatUsername
   const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
@@ -831,11 +839,11 @@ function appendMessage(msg) {
     const sep = document.createElement('div')
     sep.className = 'date-separator'
     sep.textContent = formatDateLabel(new Date(msg.created_at))
-    container.appendChild(sep)
+    dest.appendChild(sep)
   }
 
   // Détecte si même personne que le message précédent
-  const lastMsg = container.lastElementChild
+  const lastMsg = prevEl !== undefined ? prevEl : container.lastElementChild
   const lastUsername = lastMsg?.dataset.username
   const lastTime = lastMsg?.dataset.time
   const isGrouped = lastUsername === msg.username && lastTime === time
@@ -877,15 +885,19 @@ function appendMessage(msg) {
     </div>
     ${buildReactions(msg)}
   `
-  container.appendChild(div)
-  container.scrollTop = container.scrollHeight
+  dest.appendChild(div)
 
-  // Badge de notif + son si on est ailleurs
-  if (chatInitialized && !chatOpen && !isMine) {
-    unreadCount++
-    updateBadge()
-    playNotifSound()
+  if (!target) {
+    container.scrollTop = container.scrollHeight
+    // Badge de notif + son si on est ailleurs
+    if (chatInitialized && !chatOpen && !isMine) {
+      unreadCount++
+      updateBadge()
+      playNotifSound()
+    }
   }
+
+  return div
 }
 
 window.startReply = function(id, content, username) {
@@ -2198,6 +2210,7 @@ async function loadActivity() {
   container.innerHTML = ''
   // Déduplique par username (garder le plus récent)
   const seen = new Set()
+  const frag = document.createDocumentFragment()
   data.filter(m => { if (seen.has(m.username)) return false; seen.add(m.username); return true }).forEach(m => {
     const ago = timeAgo(m.created_at)
     const div = document.createElement('div')
@@ -2209,8 +2222,9 @@ async function loadActivity() {
     const time = document.createElement('span')
     time.className = 'activity-time'; time.textContent = ago
     div.appendChild(av); div.appendChild(text); div.appendChild(time)
-    container.appendChild(div)
+    frag.appendChild(div)
   })
+  container.appendChild(frag)
 }
 
 function timeAgo(iso) {
