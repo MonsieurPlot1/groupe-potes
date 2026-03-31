@@ -2405,6 +2405,29 @@ body.light .voice-user-card.failed { background: rgba(239,68,68,0.12); }
   opacity: 0.7;
 }
 .voice-user-card.speaking .voice-user-mic { opacity: 1; }
+.vc-vol-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.vc-vol-icon {
+  font-size: 0.95rem;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.vc-vol-slider {
+  width: 58px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: var(--accent-2);
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.vc-vol-slider:hover { opacity: 1; }
+@media (max-width: 600px) {
+  .vc-vol-slider { width: 44px; }
+}
 
 /* ─── Stream viewer ──────────────────────────────────────── */
 .stream-viewer {

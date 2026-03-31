@@ -1490,6 +1490,8 @@ function voicePlayAudio(username, stream) {
     document.body.appendChild(el)
   }
   el.srcObject = stream
+  const savedVol = parseInt(localStorage.getItem('voice-vol-' + username) || '100') / 100
+  el.volume = Math.min(Math.max(savedVol, 0), 1)
   voiceWatchLevel(username, stream)
 }
 
@@ -1665,12 +1667,24 @@ function voiceBuildCard(user) {
   }
   div.appendChild(bars)
 
-  // Mic icon
-  const mic = document.createElement('span')
-  mic.id = 'voice-mic-' + user.name
-  mic.className = 'voice-user-mic'
-  mic.textContent = user.muted ? '🔇' : '🎤'
-  div.appendChild(mic)
+  // Volume control (replaces standalone mic icon)
+  const volWrap = document.createElement('div')
+  volWrap.className = 'vc-vol-wrap'
+  const volIcon = document.createElement('span')
+  volIcon.className = 'vc-vol-icon'
+  volIcon.id = 'voice-mic-' + user.name  // keep same id — voiceRefreshCard uses it
+  volIcon.textContent = user.muted ? '🔇' : '🔊'
+  const volSlider = document.createElement('input')
+  volSlider.type = 'range'
+  volSlider.className = 'vc-vol-slider'
+  volSlider.min = '0'
+  volSlider.max = '100'
+  volSlider.value = localStorage.getItem('voice-vol-' + user.name) || '100'
+  volSlider.oninput = () => window.setVoiceVolume(user.name, volSlider.value)
+  if (user.name === voiceMe()) volSlider.style.display = 'none'
+  volWrap.appendChild(volIcon)
+  volWrap.appendChild(volSlider)
+  div.appendChild(volWrap)
 
   return div
 }
@@ -1687,7 +1701,7 @@ function voiceRefreshCard(username) {
     user.failed ? 'failed' : ''
   ].filter(Boolean).join(' ')
   const mic = document.getElementById('voice-mic-' + username)
-  if (mic) mic.textContent = user.muted ? '🔇' : '🎤'
+  if (mic) mic.textContent = user.muted ? '🔇' : '🔊'
 
   // Update level bars
   const lvlEl = document.getElementById('voice-lvl-' + username)
@@ -1716,6 +1730,13 @@ function voiceRefreshCard(username) {
   } else if (!user.streaming && existingBadge) {
     existingBadge.remove()
   }
+}
+
+window.setVoiceVolume = function(username, value) {
+  localStorage.setItem('voice-vol-' + username, value)
+  const vol = parseInt(value) / 100
+  document.querySelectorAll('.v-remote-audio[data-user="' + username + '"]')
+    .forEach(el => { el.volume = Math.min(Math.max(vol, 0), 1) })
 }
 
 function voiceRefreshMuteBtn() {
