@@ -395,6 +395,16 @@
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.sendVoiceChat()}"
             >
             <button class="voice-chat-send-btn" onclick="window.sendVoiceChat()">↵</button>
+            <div class="voice-emoji-wrap">
+              <button class="voice-emoji-btn" onclick="window.toggleVoiceEmojiPicker(event)" title="Réactions">✨</button>
+              <div class="voice-emoji-picker" id="voice-emoji-picker" style="display:none">
+                <span onclick="window.sendVoiceEmoji('👍')">👍</span>
+                <span onclick="window.sendVoiceEmoji('😂')">😂</span>
+                <span onclick="window.sendVoiceEmoji('🔥')">🔥</span>
+                <span onclick="window.sendVoiceEmoji('💀')">💀</span>
+                <span onclick="window.sendVoiceEmoji('😮')">😮</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="stream-quality-row" id="stream-quality-row" style="display:none">

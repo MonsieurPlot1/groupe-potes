@@ -1376,6 +1376,9 @@ async function voiceHandleSignal(p) {
     case 'vc':
       displayVoiceChatMsg({ from: p.from, text: p.text })
       break
+    case 've':
+      displayVoiceEmoji(p.from, p.emoji)
+      break
   }
 }
 
@@ -1575,6 +1578,11 @@ document.addEventListener('visibilitychange', () => {
   }
 })
 
+document.addEventListener('click', () => {
+  const picker = document.getElementById('voice-emoji-picker')
+  if (picker) picker.style.display = 'none'
+})
+
 // Raccourci clavier M : mute/unmute vocal (seulement si aucun champ texte n'est focus)
 document.addEventListener('keydown', e => {
   if (!voiceConnected) return
@@ -1748,6 +1756,12 @@ function voiceBuildCard(user) {
   volWrap.appendChild(volSlider)
   div.appendChild(volWrap)
 
+  // Emoji float overlay
+  const emojiFloat = document.createElement('div')
+  emojiFloat.className = 'vc-emoji-float'
+  emojiFloat.id = 'vc-emoji-' + user.name
+  div.appendChild(emojiFloat)
+
   return div
 }
 
@@ -1847,6 +1861,32 @@ function displayVoiceChatMsg({ from, text }) {
   while (feed.children.length > 5) feed.firstChild.remove()
   setTimeout(() => el.classList.add('vchat-fade'), 7000)
   setTimeout(() => { if (el.parentNode) el.remove() }, 8200)
+}
+
+window.sendVoiceEmoji = async function(emoji) {
+  if (!voiceConnected) return
+  const picker = document.getElementById('voice-emoji-picker')
+  if (picker) picker.style.display = 'none'
+  displayVoiceEmoji(voiceMe(), emoji)
+  await vsend({ type: 've', from: voiceMe(), emoji })
+}
+
+function displayVoiceEmoji(from, emoji) {
+  const el = document.getElementById('vc-emoji-' + from)
+  if (!el) return
+  el.textContent = emoji
+  el.className = 'vc-emoji-float vc-emoji-anim'
+  setTimeout(() => {
+    el.className = 'vc-emoji-float'
+    el.textContent = ''
+  }, 2000)
+}
+
+window.toggleVoiceEmojiPicker = function(e) {
+  if (e) e.stopPropagation()
+  const picker = document.getElementById('voice-emoji-picker')
+  if (!picker) return
+  picker.style.display = picker.style.display === 'none' ? 'flex' : 'none'
 }
 
 /* ── Stream ───────────────────────────────────────────────── */
