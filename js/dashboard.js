@@ -1138,11 +1138,23 @@ document.addEventListener('change', async e => {
    VOCAL & STREAM (WebRTC)
    ===================================================== */
 
-const VOICE_ICE = [
+const VOICE_ICE_FALLBACK = [
   { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' }
+  { urls: 'stun:stun1.l.google.com:19302' }
 ]
+let cachedIceServers = VOICE_ICE_FALLBACK
+
+async function getIceServers() {
+  try {
+    const res = await fetch(
+      'https://bakasable.metered.live/api/v1/turn/credentials?apiKey=Z1GgsTNbcsltpsBOcol47qhwPvMk8A1eyZJHWpjbkqJd7yq8'
+    )
+    if (!res.ok) throw new Error('TURN fetch failed')
+    cachedIceServers = await res.json()
+  } catch {
+    cachedIceServers = VOICE_ICE_FALLBACK
+  }
+}
 
 function preferH264(sdp) {
   const lines = sdp.split('\r\n')
@@ -1241,6 +1253,7 @@ window.joinVoice = async function () {
   if (voiceConnected || !currentUser) return
   const btn = document.getElementById('voice-join-btn')
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Connexion...' }
+  await getIceServers()
   const savedMic = localStorage.getItem('selected-mic')
   // Audio HQ : 48kHz, mono (optimal pour voix), faible latence
   const audioConstraint = {
@@ -1350,7 +1363,7 @@ async function voiceHandleSignal(p) {
 
 function voiceMakePeer(remote) {
   if (voicePeers[remote]) return voicePeers[remote]
-  const pc = new RTCPeerConnection({ iceServers: VOICE_ICE })
+  const pc = new RTCPeerConnection({ iceServers: cachedIceServers })
   voicePeers[remote] = pc
   voiceIceQueue[remote] = []
   if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
