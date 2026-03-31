@@ -1174,6 +1174,7 @@ function preferH264(sdp) {
 
 let voiceConnected = false
 let voiceMuted = false
+let voicePTT = false
 let localStream = null
 let voiceSignalChannel = null
 const voicePeers = {}
@@ -1254,6 +1255,11 @@ window.joinVoice = async function () {
   const btn = document.getElementById('voice-join-btn')
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Connexion...' }
   await getIceServers()
+  voicePTT = localStorage.getItem('voice-ptt') === '1'
+  const pttToggle = document.getElementById('voice-ptt-toggle')
+  if (pttToggle) pttToggle.checked = voicePTT
+  const pttHint = document.getElementById('ptt-key-hint')
+  if (pttHint) pttHint.style.display = voicePTT ? '' : 'none'
   const savedMic = localStorage.getItem('selected-mic')
   // Audio HQ : 48kHz, mono (optimal pour voix), faible latence
   const audioConstraint = {
@@ -1276,6 +1282,7 @@ window.joinVoice = async function () {
       return
     }
   }
+  if (voicePTT) localStream.getAudioTracks().forEach(t => { t.enabled = false })
   loadMicList()
   voiceConnected = true
   voiceAddUser(voiceMe(), false)
@@ -1314,6 +1321,11 @@ window.leaveVoice = async function () {
   document.querySelectorAll('.v-remote-audio').forEach(el => el.remove())
   voiceConnected = false
   voiceMuted = false
+  voicePTT = false
+  const pttToggle = document.getElementById('voice-ptt-toggle')
+  if (pttToggle) pttToggle.checked = false
+  const pttHint = document.getElementById('ptt-key-hint')
+  if (pttHint) pttHint.style.display = 'none'
   voiceUsers = []
   renderVoiceUI()
   renderVoiceBar()
@@ -1570,6 +1582,34 @@ document.addEventListener('keydown', e => {
   }
 })
 
+document.addEventListener('keydown', e => {
+  if (!voiceConnected || !voicePTT) return
+  if (e.key !== ' ' && e.key !== 't' && e.key !== 'T') return
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
+  if (e.repeat) return
+  if (e.key === ' ') e.preventDefault()
+  localStream?.getAudioTracks().forEach(t => { t.enabled = true })
+  voiceMuted = false
+  const u = voiceUsers.find(u => u.name === voiceMe())
+  if (u) { u.muted = false; voiceRefreshCard(voiceMe()) }
+  vsend({ type: 'mute', from: voiceMe(), muted: false })
+  voiceRefreshMuteBtn()
+  renderVoiceBar()
+})
+
+document.addEventListener('keyup', e => {
+  if (!voiceConnected || !voicePTT) return
+  if (e.key !== ' ' && e.key !== 't' && e.key !== 'T') return
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
+  localStream?.getAudioTracks().forEach(t => { t.enabled = false })
+  voiceMuted = true
+  const u = voiceUsers.find(u => u.name === voiceMe())
+  if (u) { u.muted = true; u.speaking = false; voiceRefreshCard(voiceMe()) }
+  vsend({ type: 'mute', from: voiceMe(), muted: true })
+  voiceRefreshMuteBtn()
+  renderVoiceBar()
+})
+
 window.toggleVoiceMute = function () {
   if (!voiceConnected || !localStream) return
   voiceMuted = !voiceMuted
@@ -1579,6 +1619,21 @@ window.toggleVoiceMute = function () {
   vsend({ type: 'mute', from: voiceMe(), muted: voiceMuted })
   voiceRefreshMuteBtn()
   renderVoiceBar()
+}
+
+window.onPTTToggle = function(on) {
+  voicePTT = on
+  localStorage.setItem('voice-ptt', on ? '1' : '0')
+  const hint = document.getElementById('ptt-key-hint')
+  if (hint) hint.style.display = on ? '' : 'none'
+  if (on && voiceConnected && !voiceMuted) {
+    voiceMuted = true
+    localStream?.getAudioTracks().forEach(t => { t.enabled = false })
+    const u = voiceUsers.find(u => u.name === voiceMe())
+    if (u) { u.muted = true; u.speaking = false; voiceRefreshCard(voiceMe()) }
+    vsend({ type: 'mute', from: voiceMe(), muted: true })
+    voiceRefreshMuteBtn()
+  }
 }
 
 function voiceAddUser(name, muted) {
@@ -1602,6 +1657,8 @@ function renderVoiceUI() {
   }
   if (controls) controls.style.display = voiceConnected ? 'flex' : 'none'
   if (qualityRow) qualityRow.style.display = voiceConnected ? 'flex' : 'none'
+  const pttRow = document.getElementById('voice-ptt-row')
+  if (pttRow) pttRow.style.display = voiceConnected ? '' : 'none'
   if (emptyMsg) emptyMsg.style.display = voiceUsers.length ? 'none' : ''
   if (countEl) countEl.textContent = voiceUsers.length
     ? voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
