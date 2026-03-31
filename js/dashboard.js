@@ -1691,7 +1691,8 @@ async function startStream() {
     screenSenders[remote] = tracks.map(t => pc.addTrack(t, screenStream))
     try {
       const offer = await pc.createOffer()
-      await pc.setLocalDescription(offer)
+      const preferredSdp = { ...offer, sdp: preferH264(offer.sdp) }
+      await pc.setLocalDescription(preferredSdp)
       await vsend({ type: 'offer', from: voiceMe(), to: remote, sdp: pc.localDescription.toJSON() })
       // Applique les limites bitrate vidéo après renegotiation
       await applyVideoBitrate(pc)
