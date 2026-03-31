@@ -1496,10 +1496,19 @@ function voiceWatchLevel(username, stream) {
   } catch {}
 }
 
-// Quand le tab redevient visible (retour du jeu), remet les barres à jour immédiatement
+// Suspend/resume AudioContexts quand tab cachée/visible — libère CPU pendant jeu
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && voiceConnected) {
-    voiceUsers.forEach(u => voiceRefreshCard(u.name))
+  if (document.hidden) {
+    // Suspend tous les AudioContexts actifs — libère CPU quand tab cachée (jeu)
+    Object.values(voiceAudioCtxs).forEach(ctx => {
+      if (ctx.state === 'running') ctx.suspend().catch(() => {})
+    })
+  } else {
+    // Reprend au retour
+    Object.values(voiceAudioCtxs).forEach(ctx => {
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+    })
+    if (voiceConnected) voiceUsers.forEach(u => voiceRefreshCard(u.name))
   }
 })
 
