@@ -1144,6 +1144,22 @@ const VOICE_ICE = [
   { urls: 'stun:stun2.l.google.com:19302' }
 ]
 
+function preferH264(sdp) {
+  const lines = sdp.split('\r\n')
+  const mIdx = lines.findIndex(l => l.startsWith('m=video'))
+  if (mIdx === -1) return sdp
+  const h264 = lines
+    .filter(l => l.startsWith('a=rtpmap:') && l.toLowerCase().includes('h264'))
+    .map(l => l.match(/a=rtpmap:(\d+)/)?.[1])
+    .filter(Boolean)
+  if (!h264.length) return sdp
+  const parts = lines[mIdx].split(' ')
+  const prefix = parts.slice(0, 3)
+  const payloads = parts.slice(3)
+  lines[mIdx] = [...prefix, ...h264, ...payloads.filter(p => !h264.includes(p))].join(' ')
+  return lines.join('\r\n')
+}
+
 let voiceConnected = false
 let voiceMuted = false
 let localStream = null
@@ -1371,7 +1387,8 @@ function voiceMakePeer(remote) {
 async function voiceCreateOffer(remote) {
   const pc = voiceMakePeer(remote)
   const offer = await pc.createOffer()
-  await pc.setLocalDescription(offer)
+  const preferredSdp = { ...offer, sdp: preferH264(offer.sdp) }
+  await pc.setLocalDescription(preferredSdp)
   await vsend({ type: 'offer', from: voiceMe(), to: remote, sdp: pc.localDescription.toJSON() })
 }
 
@@ -1381,7 +1398,8 @@ async function voiceHandleOffer(remote, sdp) {
   for (const c of (voiceIceQueue[remote] || [])) await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {})
   voiceIceQueue[remote] = []
   const answer = await pc.createAnswer()
-  await pc.setLocalDescription(answer)
+  const preferredSdp = { ...answer, sdp: preferH264(answer.sdp) }
+  await pc.setLocalDescription(preferredSdp)
   await vsend({ type: 'answer', from: voiceMe(), to: remote, sdp: pc.localDescription.toJSON() })
   voiceAddUser(remote, false)
   renderVoiceUI()
