@@ -383,6 +383,20 @@
           </label>
           <span class="ptt-key-hint" id="ptt-key-hint" style="display:none">Maintenir <kbd>Espace</kbd> ou <kbd>T</kbd></span>
         </div>
+        <div class="voice-chat-area" id="voice-chat-area" style="display:none">
+          <div class="voice-chat-feed" id="voice-chat-feed"></div>
+          <div class="voice-chat-bar">
+            <input
+              type="text"
+              id="voice-chat-input"
+              class="voice-chat-input"
+              placeholder="Message rapide..."
+              maxlength="100"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.sendVoiceChat()}"
+            >
+            <button class="voice-chat-send-btn" onclick="window.sendVoiceChat()">↵</button>
+          </div>
+        </div>
         <div class="stream-quality-row" id="stream-quality-row" style="display:none">
           <span class="stream-quality-label">Qualité stream</span>
           <select class="stream-quality-select" id="stream-res" onchange="window.saveStreamQuality()">

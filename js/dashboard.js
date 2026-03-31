@@ -1373,6 +1373,9 @@ async function voiceHandleSignal(p) {
       removeActiveStream(p.from)
       break
     }
+    case 'vc':
+      displayVoiceChatMsg({ from: p.from, text: p.text })
+      break
   }
 }
 
@@ -1659,6 +1662,8 @@ function renderVoiceUI() {
   if (qualityRow) qualityRow.style.display = voiceConnected ? 'flex' : 'none'
   const pttRow = document.getElementById('voice-ptt-row')
   if (pttRow) pttRow.style.display = voiceConnected ? '' : 'none'
+  const chatArea = document.getElementById('voice-chat-area')
+  if (chatArea) chatArea.style.display = voiceConnected ? '' : 'none'
   if (emptyMsg) emptyMsg.style.display = voiceUsers.length ? 'none' : ''
   if (countEl) countEl.textContent = voiceUsers.length
     ? voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
@@ -1818,6 +1823,30 @@ function renderVoiceBar() {
       ? '🎙️ ' + speakers.join(', ')
       : voiceUsers.length + ' connecté' + (voiceUsers.length > 1 ? 's' : '')
   }
+}
+
+window.sendVoiceChat = async function() {
+  if (!voiceConnected) return
+  const input = document.getElementById('voice-chat-input')
+  const text = input?.value.trim()
+  if (!text) return
+  input.value = ''
+  const msg = { from: voiceMe(), text }
+  displayVoiceChatMsg(msg)
+  await vsend({ type: 'vc', from: msg.from, text: msg.text })
+}
+
+function displayVoiceChatMsg({ from, text }) {
+  const feed = document.getElementById('voice-chat-feed')
+  if (!feed) return
+  const el = document.createElement('div')
+  el.className = 'vchat-msg' + (from === voiceMe() ? ' mine' : '')
+  el.innerHTML = '<span class="vchat-from">' + escapeHtml(from) + '</span> '
+    + '<span class="vchat-text">' + escapeHtml(text) + '</span>'
+  feed.appendChild(el)
+  while (feed.children.length > 5) feed.firstChild.remove()
+  setTimeout(() => el.classList.add('vchat-fade'), 7000)
+  setTimeout(() => { if (el.parentNode) el.remove() }, 8200)
 }
 
 /* ── Stream ───────────────────────────────────────────────── */
