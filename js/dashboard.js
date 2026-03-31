@@ -229,7 +229,7 @@ async function loadHomeStats() {
 }
 
 async function loadHomeMessages() {
-  const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(5)
+  const { data } = await supabase.from('messages').select('id, username, content, image_url, created_at').order('created_at', { ascending: false }).limit(5)
   const container = document.getElementById('home-messages')
   if (!data?.length) { container.innerHTML = '<p style="color:var(--text-muted);font-size:0.88rem">Aucun message pour l\'instant...</p>'; return }
   container.innerHTML = ''
@@ -696,7 +696,7 @@ async function loadMessages() {
 
   const { data } = await supabase
     .from('messages')
-    .select('*')
+    .select('id, username, content, image_url, created_at, reply_to, reply_preview, reactions, pinned, updated_at')
     .order('created_at', { ascending: false })
     .limit(CHAT_PAGE)
 
@@ -731,7 +731,7 @@ function setupLoadMoreObserver() {
 
     const { data } = await supabase
       .from('messages')
-      .select('*')
+      .select('id, username, content, image_url, created_at, reply_to, reply_preview, reactions, pinned, updated_at')
       .order('created_at', { ascending: false })
       .lt('created_at', chatOldestAt)
       .limit(CHAT_PAGE)
@@ -2009,7 +2009,7 @@ window.openProfile = async function(username) {
   modal.classList.add('open')
 
   // Chargement profil Supabase
-  const { data: profile } = await supabase.from('profiles').select('*').eq('username', username).maybeSingle()
+  const { data: profile } = await supabase.from('profiles').select('username, bio, status, status_emoji, joined_at').eq('username', username).maybeSingle()
   const bio = profile?.bio || ''
   bioView.textContent = bio || (isMine ? '✏️ Clique pour ajouter une description' : 'Aucune description')
 
@@ -2259,7 +2259,7 @@ let calMonth = new Date().getMonth()
 let calEvents = []
 
 async function initCalendar() {
-  const { data } = await supabase.from('events').select('*').order('event_date')
+  const { data } = await supabase.from('events').select('id, title, event_date, event_time, description, created_by').order('event_date')
   calEvents = data || []
   renderCalendar()
 }
